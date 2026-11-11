@@ -49,9 +49,9 @@ public class BookingSeatDAO {
     }
     
     private int executeChange(String sql, Object[] params) throws SQLException {
-        jdbcUtil.setSqlAndParameters(sql, params);
-        
         try {
+            jdbcUtil.setSqlAndParameters(sql, params);
+            
             int result = jdbcUtil.executeUpdate();
             
             jdbcUtil.commit();
