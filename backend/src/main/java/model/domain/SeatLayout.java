@@ -2,20 +2,21 @@ package model.domain;
 
 public class SeatLayout {
     private long seatLayoutId;
-    private long venueId;
     private String seatLayoutName;
     private String isTemplate;
+    private long venueId;
+    private long sourceLayoutId; 
     
     public SeatLayout() {
-        
     }
 
-    public SeatLayout(long seatLayoutId, long venueId, String seatLayoutName, String isTemplate) {
+    public SeatLayout(long seatLayoutId, String seatLayoutName, String isTemplate, long venueId, long sourceLayoutId) {
         super();
         this.seatLayoutId = seatLayoutId;
-        this.venueId = venueId;
         this.seatLayoutName = seatLayoutName;
         this.isTemplate = isTemplate;
+        this.venueId = venueId;
+        this.sourceLayoutId = sourceLayoutId;
     }
 
     public long getSeatLayoutId() {
@@ -24,14 +25,6 @@ public class SeatLayout {
 
     public void setSeatLayoutId(long seatLayoutId) {
         this.seatLayoutId = seatLayoutId;
-    }
-
-    public long getVenueId() {
-        return venueId;
-    }
-
-    public void setVenueId(long venueId) {
-        this.venueId = venueId;
     }
 
     public String getSeatLayoutName() {
@@ -50,9 +43,25 @@ public class SeatLayout {
         this.isTemplate = isTemplate;
     }
 
+    public long getVenueId() {
+        return venueId;
+    }
+
+    public void setVenueId(long venueId) {
+        this.venueId = venueId;
+    }
+
+    public long getSourceLayoutId() {
+        return sourceLayoutId;
+    }
+
+    public void setSourceLayoutId(long sourceLayoutId) {
+        this.sourceLayoutId = sourceLayoutId;
+    }
+
     @Override
     public String toString() {
-        return "SeatLayout [seatLayoutId=" + seatLayoutId + ", venueId=" + venueId + ", seatLayoutName="
-                + seatLayoutName + ", isTemplate=" + isTemplate + "]";
+        return "SeatLayout [seatLayoutId=" + seatLayoutId + ", seatLayoutName=" + seatLayoutName 
+                + ", isTemplate=" + isTemplate + ", venueId=" + venueId + ", sourceLayoutId=" + sourceLayoutId + "]";
     }
 }
