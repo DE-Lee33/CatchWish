@@ -14,7 +14,7 @@ public class WishlistDAO {
 
     // 1. 위시리스트 등록
     public int insertWishlist(Long memberId, Long performanceId,
-                              Long sectorId, int priority) throws Exception {
+                              Long sectorId, Integer priority) throws Exception {
 
         JDBCUtil jdbcUtil = new JDBCUtil();
 

@@ -16,7 +16,7 @@ public class Wishlist {
     }
 
     public Wishlist(Long wishlistId, Long memberId, Long performanceId,
-                    Long sectorId, int priority, Timestamp createdAt) {
+                    Long sectorId, Integer priority, Timestamp createdAt) {
         this.wishlistId = wishlistId;
         this.memberId = memberId;
         this.performanceId = performanceId;
