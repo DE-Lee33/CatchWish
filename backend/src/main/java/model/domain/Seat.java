@@ -3,64 +3,86 @@ package model.domain;
 public class Seat {
     private long seatId;
     private long seatLayoutId;
+    private String rowNum;      
+    private long columnNum;      
+    private String seatNumber;   
+    private String seatStatus;  
     private long sectorId;
-    private int rowNum;
-    private int columnNum;
-    private String seatNumber;
-    private String seatStatus;
-    
-    public Seat() {}
-    
-    public Seat(long seatId, long seatLayoutId, long sectorId,
-            int rowNum, int columnNum, String seatNumber, String seatStatus) {
+
+    public Seat() {
+    }
+
+    public Seat(long seatId, long seatLayoutId, String rowNum, long columnNum, String seatNumber, String seatStatus, long sectorId) {
+        super();
         this.seatId = seatId;
         this.seatLayoutId = seatLayoutId;
-        this.sectorId = sectorId;
         this.rowNum = rowNum;
         this.columnNum = columnNum;
         this.seatNumber = seatNumber;
         this.seatStatus = seatStatus;
+        this.sectorId = sectorId;
     }
+
     public long getSeatId() {
         return seatId;
     }
+
     public void setSeatId(long seatId) {
         this.seatId = seatId;
     }
+
     public long getSeatLayoutId() {
         return seatLayoutId;
     }
+
     public void setSeatLayoutId(long seatLayoutId) {
         this.seatLayoutId = seatLayoutId;
     }
-    public long getSectorId() {
-        return sectorId;
-    }
-    public void setSectorId(long sectorId) {
-        this.sectorId = sectorId;
-    }
-    public int getRowNum() {
+
+    public String getRowNum() {
         return rowNum;
     }
-    public void setRowNum(int rowNum) {
+
+    public void setRowNum(String rowNum) {
         this.rowNum = rowNum;
     }
-    public int getColumnNum() {
+
+    public long getColumnNum() {
         return columnNum;
     }
-    public void setColumnNum(int columnNum) {
+
+    public void setColumnNum(long columnNum) {
         this.columnNum = columnNum;
     }
+
     public String getSeatNumber() {
         return seatNumber;
     }
+
     public void setSeatNumber(String seatNumber) {
         this.seatNumber = seatNumber;
     }
+
     public String getSeatStatus() {
         return seatStatus;
     }
+
     public void setSeatStatus(String seatStatus) {
         this.seatStatus = seatStatus;
+    }
+
+    public long getSectorId() {
+        return sectorId;
+    }
+
+    public void setSectorId(long sectorId) {
+        this.sectorId = sectorId;
+    }
+
+    @Override
+    public String toString() {
+        return "Seat [seatId=" + seatId + ", seatLayoutId=" + seatLayoutId + ", rowNum=" + rowNum 
+                + ", columnNum=" + columnNum + ", seatNumber=" + seatNumber + ", seatStatus=" + seatStatus 
+                + ", sectorId=" + sectorId + "]";
     }
 }
