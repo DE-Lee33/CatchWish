@@ -25,11 +25,12 @@ public class SeatDAO {
                    + "WHERE seat_layout_id = ? "
                    + "ORDER BY sector_id, row_num, column_num";
 
-        jdbcUtil.setSqlAndParameters(sql, new Object[] { seatLayoutId });
 
         List<Seat> seatList = new ArrayList<>();
 
         try {
+            jdbcUtil.setSqlAndParameters(sql, new Object[] { seatLayoutId });
+
             ResultSet rs = jdbcUtil.executeQuery();
 
             if (rs == null) {
@@ -78,11 +79,12 @@ public class SeatDAO {
                    + "GROUP BY s.sector_id, s.sector_name "
                    + "ORDER BY s.sector_id";
 
-        jdbcUtil.setSqlAndParameters(sql, new Object[] { seatLayoutId });
 
         List<SectorAvailabilityDTO> sectorList = new ArrayList<>();
 
         try {
+            jdbcUtil.setSqlAndParameters(sql, new Object[] { seatLayoutId });
+
             ResultSet rs = jdbcUtil.executeQuery();
 
             if (rs == null) {
