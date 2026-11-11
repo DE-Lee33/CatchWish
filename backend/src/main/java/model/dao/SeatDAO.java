@@ -43,8 +43,8 @@ public class SeatDAO {
                 seat.setSeatId(rs.getLong("seat_id"));
                 seat.setSeatLayoutId(rs.getLong("seat_layout_id"));
                 seat.setSectorId(rs.getLong("sector_id"));
-                seat.setRowNum(rs.getInt("row_num"));
-                seat.setColumnNum(rs.getInt("column_num"));
+                seat.setRowNum(rs.getString("row_num"));
+                seat.setColumnNum(rs.getLong("column_num"));
                 seat.setSeatNumber(rs.getString("seat_number"));
                 seat.setSeatStatus(rs.getString("seat_status"));
 
