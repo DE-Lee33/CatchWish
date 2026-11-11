@@ -348,7 +348,7 @@ public class BookingDAO {
             // 2. 만료 대상 예매 상태 변경
             String bookingSql =
                 "UPDATE BOOKING " +
-                "SET BOOKING_STATUS = 'E' " +
+                "SET BOOKING_STATUS = 'X' " +
                 "WHERE BOOKING_STATUS = 'W' " +
                 "AND CREATED_AT < ?";
 
