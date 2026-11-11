@@ -317,29 +317,57 @@ public class BookingDAO {
      * 생성 후 10분이 지난 결제 대기 예매를 만료 처리
      */
     public int expireBookings() throws Exception {
-
         JDBCUtil jdbcUtil = new JDBCUtil();
 
+        // 기준 시간: 현재 시각에서 10분 전
+        Timestamp cutoffTime = new Timestamp(
+            System.currentTimeMillis() - 10 * 60 * 1000L
+        );
+
         try {
-            String sql =
-                "UPDATE BOOKING " +
-                "SET BOOKING_STATUS = ? " +
-                "WHERE BOOKING_STATUS = ? " +
-                "  AND CREATED_AT <= SYSDATE - (10 / 1440)";
+            // 1. 만료 대상 예매의 좌석 상태 H → A 변경
+            String seatSql =
+                "UPDATE SEAT S " +
+                "SET SEAT_STATUS = 'A' " +
+                "WHERE S.SEAT_STATUS = 'H' " +
+                "AND EXISTS ( " +
+                "    SELECT 1 " +
+                "    FROM BOOKING_SEAT BS " +
+                "    JOIN BOOKING B ON BS.BOOKING_ID = B.BOOKING_ID " +
+                "    WHERE BS.SEAT_ID = S.SEAT_ID " +
+                "    AND B.BOOKING_STATUS = 'W' " +
+                "    AND B.CREATED_AT < ? " +
+                ")";
 
             jdbcUtil.setSqlAndParameters(
-                sql,
-                new Object[] { "X", "W" }
+                seatSql,
+                new Object[] { cutoffTime }
+            );
+            jdbcUtil.executeUpdate();
+
+            // 2. 만료 대상 예매 상태 변경
+            String bookingSql =
+                "UPDATE BOOKING " +
+                "SET BOOKING_STATUS = 'E' " +
+                "WHERE BOOKING_STATUS = 'W' " +
+                "AND CREATED_AT < ?";
+
+            jdbcUtil.setSqlAndParameters(
+                bookingSql,
+                new Object[] { cutoffTime }
             );
 
             int result = jdbcUtil.executeUpdate();
 
+            // 3. 마지막에 한 번만 commit
             jdbcUtil.commit();
+
             return result;
 
         } catch (Exception ex) {
             jdbcUtil.rollback();
             throw ex;
+
         } finally {
             jdbcUtil.close();
         }
