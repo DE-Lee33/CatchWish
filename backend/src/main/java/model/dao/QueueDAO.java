@@ -9,21 +9,45 @@ import model.dto.QueueStatusDTO;
 public class QueueDAO {
 
     // 1. 대기열 진입
-    public Long insertQueue(Long memberId, Long performanceId) throws Exception {
+    public Long insertQueue(Long memberId, Long performanceId)
+            throws Exception {
+
         JDBCUtil jdbcUtil = new JDBCUtil();
 
-        String sql = "INSERT INTO QUEUE "
-                + "(QUEUE_ID, POSITION, STATUS, CREATED_AT, MEMBER_ID, PERFORMANCE_ID) "
-                + "SELECT SEQ_QUEUE.NEXTVAL, "
-                + "(SELECT NVL(MAX(POSITION), 0) + 1 "
-                + "FROM QUEUE WHERE PERFORMANCE_ID = ?), "
-                + "'W', SYSDATE, ?, ? "
-                + "FROM DUAL";
-        
         try {
-            jdbcUtil.setSqlAndParameters(sql, new Object[] {
-                    performanceId, memberId, performanceId
-            });
+            // 1) 대기 순번으로 사용할 시퀀스 번호 발급
+            String sequenceSql =
+                    "SELECT SEQ_QUEUE.NEXTVAL AS QUEUE_ID FROM DUAL";
+
+            jdbcUtil.setSqlAndParameters(
+                    sequenceSql,
+                    new Object[] {}
+            );
+
+            ResultSet rs = jdbcUtil.executeQuery();
+
+            if (rs == null || !rs.next()) {
+                jdbcUtil.rollback();
+                return null;
+            }
+
+            Long queueId = rs.getLong("QUEUE_ID");
+
+            // 2) 발급받은 번호를 QUEUE_ID와 POSITION에 함께 사용
+            String sql =
+                    "INSERT INTO QUEUE " +
+                    "(QUEUE_ID, POSITION, STATUS, CREATED_AT, MEMBER_ID, PERFORMANCE_ID) " +
+                    "VALUES (?, ?, 'W', SYSDATE, ?, ?)";
+
+            jdbcUtil.setSqlAndParameters(
+                    sql,
+                    new Object[] {
+                            queueId,
+                            queueId,
+                            memberId,
+                            performanceId
+                    }
+            );
 
             int result = jdbcUtil.executeUpdate();
 
@@ -32,22 +56,9 @@ public class QueueDAO {
                 return null;
             }
 
-            // 방금 생성된 대기열 ID 조회
-            jdbcUtil.setSqlAndParameters(
-                    "SELECT SEQ_QUEUE.CURRVAL AS QUEUE_ID FROM DUAL",
-                    new Object[] {}
-            );
+            jdbcUtil.commit();
 
-            ResultSet rs = jdbcUtil.executeQuery();
-
-            if (rs != null && rs.next()) {
-                Long queueId = rs.getLong("QUEUE_ID");
-                jdbcUtil.commit();
-                return queueId;
-            }
-
-            jdbcUtil.rollback();
-            return null;
+            return queueId;
 
         } catch (Exception ex) {
             jdbcUtil.rollback();
