@@ -62,14 +62,14 @@ public class SeatLayoutDAO {
         return executeChange(sql, new Object[] { sectorId, rowNum, columnNum, seatNumber, seatId });
     }
     
-    public int insertSector(long seatLayoutId, String sectorName) throws SQLException {
-        String sql = "INSERT INTO sector (sector_id, seat_layout_id, sector_name) VALUES (SEQ_SECTOR.NEXTVAL, ?, ?)";
+    public int insertSector(long seatLayoutId, String sectorName, long gradeId, long performanceId) throws SQLException {
+        String sql = "INSERT INTO sector (sector_id, seat_layout_id, sector_name, grade_id, performance_id) VALUES (SEQ_SECTOR.NEXTVAL, ?, ?, ?, ?)";
         
-        return executeChange(sql, new Object[] { seatLayoutId, sectorName });
+        return executeChange(sql, new Object[] { seatLayoutId, sectorName, gradeId, performanceId });
     }
     
     public int updateSeatStatusToBooked(long seatId) throws SQLException {
-        String sql = "UPDATE seat SET seat_status = 'B' WHERE seat_id = ?";
+        String sql = "UPDATE seat SET seat_status = 'B' WHERE seat_id = ? AND seat_status = 'H'";
         
         return executeChange(sql, new Object[] { seatId });
     }
