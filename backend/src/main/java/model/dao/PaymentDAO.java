@@ -12,7 +12,7 @@ public class PaymentDAO {
     }
     
     public int insertPayment(PaymentRequestDTO request) throws SQLException {
-        String sql = "INSERT INTO payment(payment_id, booking_id1, payment_amount, payment_method, payment_status, paid_at, transaction_id) "
+        String sql = "INSERT INTO payment(payment_id, booking_id, payment_amount, payment_method, payment_status, paid_at, transaction_id) "
                    + "VALUES (SEQ_PAYMENT.NEXTVAL, ?, ?, ?, 'P', SYSDATE, ?)";
         
         Object[] params = new Object[] {
@@ -28,7 +28,7 @@ public class PaymentDAO {
     public int updatePaymentSuccess(long bookingId, String transactionId) throws SQLException {
         String sql = "UPDATE payment "
                    + "SET payment_status = 'C', paid_at = SYSDATE, transaction_id = ? "
-                   + "WHERE booking_id1 = ?";
+                   + "WHERE booking_id = ?";
         
         return executeChange(sql, new Object[] { transactionId, bookingId });
     }
@@ -36,7 +36,7 @@ public class PaymentDAO {
     public int updatePaymentStatus(long bookingId, String paymentStatus) throws SQLException {
         String sql = "UPDATE payment "
                    + "SET payment_status = ? "
-                   + "WHERE booking_id1 = ?";
+                   + "WHERE booking_id = ?";
         
         return executeChange(sql, new Object[] { paymentStatus, bookingId });
     }
