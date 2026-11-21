@@ -8,7 +8,7 @@
 -- 구성 (순서를 바꾸면 FK 오류가 남)
 --   PART 1. CLEANUP : 지우 -> 재원 -> 다은 -> 현지   (참조하는 쪽부터 삭제)
 --   PART 2. INSERT  : 현지 -> 다은 -> 재원 -> 지우   (참조당하는 쪽부터 입력)
---   PART 3. CHECK   : 현지 -> 다은 -> 재원
+--   PART 3. CHECK   : 현지 -> 다은 -> 재원 -> 지우
 --
 -- 선행 관계
 --   다은 INSERT = 현지의 회원(seed_user1, seed_user2, seed_host2)·공연 필요
