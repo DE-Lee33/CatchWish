@@ -25,12 +25,20 @@ public class SeatLayoutDAOTest {
     private long createdSeatLayoutId = 0;
     private long createdSectorId = 0;
     private long createdSeatId = 0;
-
+    private long existingGradeId = 0;
+    private long existingPerformanceId = 0;
+    
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         assumeTrue("db.properties를 만들어주세요 (src/main/resources/db.properties.example 참고)",
                 getClass().getClassLoader().getResource("db.properties") != null);
         seatLayoutDao = new SeatLayoutDAO();
+        
+        // SEAT_GRADE의 같은 행에서 GRADE_ID, PERFORMANCE_ID를 함께 조회 (FK 충족)
+        long[] gp = findAnyGradeAndPerformance();
+        assumeTrue("SEAT_GRADE 데이터가 필요합니다.", gp != null);
+        existingGradeId = gp[0];
+        existingPerformanceId = gp[1];
     }
 
     @After
@@ -66,7 +74,7 @@ public class SeatLayoutDAOTest {
     @Test
     public void testSelectLayoutWithSectors() throws Exception {
         createdSeatLayoutId = insertTestSeatLayout("테스트레이아웃");
-        createdSectorId = insertTestSector(createdSeatLayoutId, "테스트구역", 1L, 1L);
+        createdSectorId = insertTestSector(createdSeatLayoutId, "테스트구역", existingGradeId, existingPerformanceId);
 
         List<SeatLayoutResponseDTO> layoutList = seatLayoutDao.selectLayoutWithSectors(createdSeatLayoutId);
 
@@ -82,10 +90,8 @@ public class SeatLayoutDAOTest {
     @Test
     public void testInsertSectorAndSeat() throws Exception {
         createdSeatLayoutId = insertTestSeatLayout("테스트레이아웃_인서트");
-        long testGradeId = 1L;
-        long testPerformanceId = 1L;
 
-        int sectorResult = seatLayoutDao.insertSector(createdSeatLayoutId, "A구역", testGradeId, testPerformanceId);
+        int sectorResult = seatLayoutDao.insertSector(createdSeatLayoutId, "A구역", existingGradeId, existingPerformanceId);
         assertTrue("구역 추가가 성공해야 합니다.", sectorResult > 0);
 
         createdSectorId = findLatestSectorId(createdSeatLayoutId);
@@ -101,7 +107,7 @@ public class SeatLayoutDAOTest {
     @Test
     public void testUpdateSeatStatus() throws Exception {
         createdSeatLayoutId = insertTestSeatLayout("테스트레이아웃_상태변경");
-        createdSectorId = insertTestSector(createdSeatLayoutId, "VIP구역", 1L, 1L);
+        createdSectorId = insertTestSector(createdSeatLayoutId, "VIP구역", existingGradeId, existingPerformanceId);
         
         // 테스트용 좌석 생성 (선점 상태 'H'로 생성)
         createdSeatId = insertTestSeat(createdSeatLayoutId, createdSectorId, 1, 1, "V-1", "H");
@@ -181,5 +187,18 @@ public class SeatLayoutDAOTest {
             jdbc.close();
         }
         return -1;
+    }
+    
+    private long[] findAnyGradeAndPerformance() throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            jdbc.setSqlAndParameters(
+                "SELECT GRADE_ID, PERFORMANCE_ID FROM SEAT_GRADE WHERE ROWNUM = 1", null);
+            ResultSet rs = jdbc.executeQuery();
+            if (rs.next()) return new long[] { rs.getLong(1), rs.getLong(2) };
+        } finally {
+            jdbc.close();
+        }
+        return null;
     }
 }
