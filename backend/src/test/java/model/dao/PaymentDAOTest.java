@@ -27,9 +27,15 @@ public class PaymentDAOTest {
         assumeTrue("db.properties를 만들어주세요 (src/main/resources/db.properties.example 참고)",
                 getClass().getClassLoader().getResource("db.properties") != null);
         paymentDao = new PaymentDAO();
-
-        // 결제(Payment)의 외래키(BOOKING_ID1) 충족을 위한 테스트용 예매(Booking) 데이터 생성
-        testBookingId = insertTestBooking(1L, 1L, "W");
+        
+        // BOOKING의 FK(PERFORMANCE, MEMBER)를 충족하기 위해 실제 존재하는 ID 조회
+        long existingPerformanceId = findAnyId("PERFORMANCE", "PERFORMANCE_ID");
+        long existingMemberId = findAnyId("MEMBER", "MEMBER_ID");
+        assumeTrue("PERFORMANCE 데이터가 필요합니다.", existingPerformanceId > 0);
+        assumeTrue("MEMBER 데이터가 필요합니다.", existingMemberId > 0);
+        
+        // 결제(Payment)의 외래키(BOOKING_ID) 충족을 위한 테스트용 예매(Booking) 데이터 생성
+        testBookingId = insertTestBooking(existingMemberId, existingPerformanceId, "W");
     }
 
     @After
@@ -41,7 +47,7 @@ public class PaymentDAOTest {
         JDBCUtil jdbcUtil = new JDBCUtil();
         try {
             // 외래키 제약조건에 따라 자식 테이블(PAYMENT) 먼저 삭제 후 부모 테이블(BOOKING) 삭제
-            jdbcUtil.setSqlAndParameters("DELETE FROM PAYMENT WHERE BOOKING_ID1 = ?", new Object[] { testBookingId });
+            jdbcUtil.setSqlAndParameters("DELETE FROM PAYMENT WHERE BOOKING_ID = ?", new Object[] { testBookingId });
             jdbcUtil.executeUpdate();
 
             jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING WHERE BOOKING_ID = ?", new Object[] { testBookingId });
@@ -119,6 +125,21 @@ public class PaymentDAOTest {
             jdbc.setSqlAndParameters("SELECT MAX(PAYMENT_ID) FROM PAYMENT", null);
             ResultSet rs = jdbc.executeQuery();
             if (rs.next()) return rs.getLong(1);
+        } finally {
+            jdbc.close();
+        }
+        return -1;
+    }
+    
+    private long findAnyId(String table, String idColumn) throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            jdbc.setSqlAndParameters("SELECT MIN(" + idColumn + ") FROM " + table, null);
+            ResultSet rs = jdbc.executeQuery();
+            if (rs.next()) {
+                long id = rs.getLong(1);
+                return rs.wasNull() ? -1 : id;
+            }
         } finally {
             jdbc.close();
         }
