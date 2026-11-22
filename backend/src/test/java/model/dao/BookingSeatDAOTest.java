@@ -25,6 +25,9 @@ public class BookingSeatDAOTest {
     private long testSeatId = 0;
     private long testBookingId = 0;
     private long testBookingSeatId = 0;
+    private long existingGradeId = 0;
+    private long existingPerformanceId = 0;
+    private long existingMemberId = 0;
 
     @Before
     public void setUp() throws Exception {
@@ -32,20 +35,25 @@ public class BookingSeatDAOTest {
                 getClass().getClassLoader().getResource("db.properties") != null);
         bookingSeatDao = new BookingSeatDAO();
 
-        // 1. 테스트용 Venue(공연장) 생성 (부모)
-        testVenueId = insertTestVenue("테스트공연장_BS");
+        // 0. SEAT_GRADE의 같은 행에서 GRADE_ID, PERFORMANCE_ID를 함께 조회 (FK 충족)
+        existingMemberId = findAnyId("MEMBER", "MEMBER_ID");
+        assumeTrue("MEMBER 데이터가 필요합니다.", existingMemberId > 0);
+        
+        long[] gp = findAnyGradeAndPerformance();
+        assumeTrue("SEAT_GRADE 데이터가 필요합니다.", gp != null);
+        existingGradeId = gp[0];
+        existingPerformanceId = gp[1];
 
-        // 2. 테스트용 레이아웃 생성 (VENUE_ID 참조)
+        testVenueId = insertTestVenue("테스트공연장_BS", 100);
         testSeatLayoutId = insertTestSeatLayout(testVenueId, "테스트레이아웃_BS");
 
-        // 3. 테스트용 구역 생성 (GRADE_ID, PERFORMANCE_ID는 임시로 1L 지정)
-        testSectorId = insertTestSector(testSeatLayoutId, "테스트구역_BS", 1L, 1L);
+        // 구역: 조회한 GRADE_ID + PERFORMANCE_ID 쌍 사용
+        testSectorId = insertTestSector(testSeatLayoutId, "테스트구역_BS", existingGradeId, existingPerformanceId);
 
-        // 4. 테스트용 물리 좌석 생성 (초기 상태 'A' : 예매 가능)
         testSeatId = insertTestSeat(testSeatLayoutId, testSectorId, "A");
 
-        // 5. 테스트용 예매(Booking) 레코드 생성 (상태 'W' : 선점/대기)
-        testBookingId = insertTestBooking(1L, 1L, "W");
+        // 예매: 같은 PERFORMANCE_ID 사용
+        testBookingId = insertTestBooking(existingMemberId, existingPerformanceId, "W");
     }
 
     @After
@@ -129,11 +137,11 @@ public class BookingSeatDAOTest {
 
     // --- 테스트 데이터 세팅용 헬퍼 메서드들 ---
 
-    private long insertTestVenue(String name) throws Exception {
+    private long insertTestVenue(String name, int capacity) throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
-            String sql = "INSERT INTO VENUE (VENUE_ID, VENUE_NAME) VALUES (SEQ_VENUE.NEXTVAL, ?)";
-            jdbc.setSqlAndParameters(sql, new Object[] { name });
+            String sql = "INSERT INTO VENUE (VENUE_ID, VENUE_NAME, VENUE_CAPACITY) VALUES (SEQ_VENUE.NEXTVAL, ?, ?)";
+            jdbc.setSqlAndParameters(sql, new Object[] { name, capacity });
             jdbc.executeUpdate();
             jdbc.commit();
 
@@ -224,6 +232,34 @@ public class BookingSeatDAOTest {
             jdbc.setSqlAndParameters("SELECT MAX(BOOKING_SEAT_ID) FROM BOOKING_SEAT", null);
             ResultSet rs = jdbc.executeQuery();
             if (rs.next()) return rs.getLong(1);
+        } finally {
+            jdbc.close();
+        }
+        return -1;
+    }
+    
+    private long[] findAnyGradeAndPerformance() throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            jdbc.setSqlAndParameters(
+                "SELECT GRADE_ID, PERFORMANCE_ID FROM SEAT_GRADE WHERE ROWNUM = 1", null);
+            ResultSet rs = jdbc.executeQuery();
+            if (rs.next()) return new long[] { rs.getLong(1), rs.getLong(2) };
+        } finally {
+            jdbc.close();
+        }
+        return null;
+    }
+    
+    private long findAnyId(String table, String idColumn) throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            jdbc.setSqlAndParameters("SELECT MIN(" + idColumn + ") FROM " + table, null);
+            ResultSet rs = jdbc.executeQuery();
+            if (rs.next()) {
+                long id = rs.getLong(1);
+                return rs.wasNull() ? -1 : id;
+            }
         } finally {
             jdbc.close();
         }
