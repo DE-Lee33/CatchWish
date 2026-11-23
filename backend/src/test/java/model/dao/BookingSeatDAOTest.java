@@ -10,9 +10,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * BookingSeatDAO 테스트 클래스
- * 공용 DB 오염 및 데이터 부재(무결성 제약조건)를 방지하기 위해 
- * Venue부터 순서대로 직접 생성하고 테스트 종료 후 안전하게 삭제합니다.
+ * BookingSeatDAO 테스트 클래스 공용 DB 오염 및 데이터 부재(무결성 제약조건)를 방지하기 위해 Venue부터 순서대로 직접
+ * 생성하고 테스트 종료 후 안전하게 삭제합니다.
  */
 public class BookingSeatDAOTest {
 
@@ -38,7 +37,7 @@ public class BookingSeatDAOTest {
         // 0. SEAT_GRADE의 같은 행에서 GRADE_ID, PERFORMANCE_ID를 함께 조회 (FK 충족)
         existingMemberId = findAnyId("MEMBER", "MEMBER_ID");
         assumeTrue("MEMBER 데이터가 필요합니다.", existingMemberId > 0);
-        
+
         long[] gp = findAnyGradeAndPerformance();
         assumeTrue("SEAT_GRADE 데이터가 필요합니다.", gp != null);
         existingGradeId = gp[0];
@@ -46,7 +45,7 @@ public class BookingSeatDAOTest {
 
         testVenueId = insertTestVenue("테스트공연장_BS", 100);
         testSeatLayoutId = insertTestSeatLayout(testVenueId, "테스트레이아웃_BS");
-
+        
         // 구역: 조회한 GRADE_ID + PERFORMANCE_ID 쌍 사용
         testSectorId = insertTestSector(testSeatLayoutId, "테스트구역_BS", existingGradeId, existingPerformanceId);
 
@@ -58,19 +57,23 @@ public class BookingSeatDAOTest {
 
     @After
     public void tearDown() throws Exception {
-        if (testSeatLayoutId == 0 && testSectorId == 0 && testSeatId == 0 && testBookingId == 0 && testBookingSeatId == 0 && testVenueId == 0) {
+        if (testSeatLayoutId == 0 && testSectorId == 0 && testSeatId == 0 && testBookingId == 0
+                && testBookingSeatId == 0 && testVenueId == 0) {
             return;
         }
 
         JDBCUtil jdbcUtil = new JDBCUtil();
         try {
-            // 외래키 제약조건 역순으로 안전하게 삭제 (BookingSeat -> Booking -> Seat -> Sector -> SeatLayout -> Venue)
+            // 외래키 제약조건 역순으로 안전하게 삭제 (BookingSeat -> Booking -> Seat -> Sector -> SeatLayout
+            // -> Venue)
             if (testBookingSeatId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING_SEAT WHERE BOOKING_SEAT_ID = ?", new Object[] { testBookingSeatId });
+                jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING_SEAT WHERE BOOKING_SEAT_ID = ?",
+                        new Object[] { testBookingSeatId });
                 jdbcUtil.executeUpdate();
             }
             if (testBookingId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING WHERE BOOKING_ID = ?", new Object[] { testBookingId });
+                jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING WHERE BOOKING_ID = ?",
+                        new Object[] { testBookingId });
                 jdbcUtil.executeUpdate();
             }
             if (testSeatId > 0) {
@@ -82,7 +85,8 @@ public class BookingSeatDAOTest {
                 jdbcUtil.executeUpdate();
             }
             if (testSeatLayoutId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM SEAT_LAYOUT WHERE SEAT_LAYOUT_ID = ?", new Object[] { testSeatLayoutId });
+                jdbcUtil.setSqlAndParameters("DELETE FROM SEAT_LAYOUT WHERE SEAT_LAYOUT_ID = ?",
+                        new Object[] { testSeatLayoutId });
                 jdbcUtil.executeUpdate();
             }
             if (testVenueId > 0) {
@@ -93,7 +97,8 @@ public class BookingSeatDAOTest {
         } catch (Exception e) {
             try {
                 jdbcUtil.rollback();
-            } catch (Exception ignore) {}
+            } catch (Exception ignore) {
+            }
             throw e;
         } finally {
             jdbcUtil.close();
@@ -147,7 +152,8 @@ public class BookingSeatDAOTest {
 
             jdbc.setSqlAndParameters("SELECT MAX(VENUE_ID) FROM VENUE", null);
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
         } finally {
             jdbc.close();
         }
@@ -158,14 +164,16 @@ public class BookingSeatDAOTest {
         JDBCUtil jdbc = new JDBCUtil();
         try {
             String sql = "INSERT INTO SEAT_LAYOUT (SEAT_LAYOUT_ID, VENUE_ID, SEAT_LAYOUT_NAME, IS_TEMPLATE) "
-                       + "VALUES (SEQ_SEAT_LAYOUT.NEXTVAL, ?, ?, 'Y')";
+                    + "VALUES (SEQ_SEAT_LAYOUT.NEXTVAL, ?, ?, 'Y')";
             jdbc.setSqlAndParameters(sql, new Object[] { venueId, name });
             jdbc.executeUpdate();
             jdbc.commit();
-            
-            jdbc.setSqlAndParameters("SELECT MAX(SEAT_LAYOUT_ID) FROM SEAT_LAYOUT WHERE VENUE_ID = ?", new Object[] { venueId });
+
+            jdbc.setSqlAndParameters("SELECT MAX(SEAT_LAYOUT_ID) FROM SEAT_LAYOUT WHERE VENUE_ID = ?",
+                    new Object[] { venueId });
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
         } finally {
             jdbc.close();
         }
@@ -176,14 +184,16 @@ public class BookingSeatDAOTest {
         JDBCUtil jdbc = new JDBCUtil();
         try {
             String sql = "INSERT INTO SECTOR (SECTOR_ID, SEAT_LAYOUT_ID, SECTOR_NAME, GRADE_ID, PERFORMANCE_ID) "
-                       + "VALUES (SEQ_SECTOR.NEXTVAL, ?, ?, ?, ?)";
+                    + "VALUES (SEQ_SECTOR.NEXTVAL, ?, ?, ?, ?)";
             jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorName, gradeId, perfId });
             jdbc.executeUpdate();
             jdbc.commit();
 
-            jdbc.setSqlAndParameters("SELECT MAX(SECTOR_ID) FROM SECTOR WHERE SEAT_LAYOUT_ID = ?", new Object[] { layoutId });
+            jdbc.setSqlAndParameters("SELECT MAX(SECTOR_ID) FROM SECTOR WHERE SEAT_LAYOUT_ID = ?",
+                    new Object[] { layoutId });
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
         } finally {
             jdbc.close();
         }
@@ -194,14 +204,16 @@ public class BookingSeatDAOTest {
         JDBCUtil jdbc = new JDBCUtil();
         try {
             String sql = "INSERT INTO SEAT (SEAT_ID, SEAT_LAYOUT_ID, SECTOR_ID, ROW_NUM, COLUMN_NUM, SEAT_NUMBER, SEAT_STATUS) "
-                       + "VALUES (SEQ_SEAT.NEXTVAL, ?, ?, 1, 1, 'TEST-1', ?)";
+                    + "VALUES (SEQ_SEAT.NEXTVAL, ?, ?, 'A', 1, 'TEST-1', ?)";
             jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorId, status });
             jdbc.executeUpdate();
             jdbc.commit();
 
-            jdbc.setSqlAndParameters("SELECT MAX(SEAT_ID) FROM SEAT WHERE SEAT_LAYOUT_ID = ?", new Object[] { layoutId });
+            jdbc.setSqlAndParameters("SELECT MAX(SEAT_ID) FROM SEAT WHERE SEAT_LAYOUT_ID = ?",
+                    new Object[] { layoutId });
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
         } finally {
             jdbc.close();
         }
@@ -212,14 +224,15 @@ public class BookingSeatDAOTest {
         JDBCUtil jdbc = new JDBCUtil();
         try {
             String sql = "INSERT INTO BOOKING (BOOKING_ID, MEMBER_ID, PERFORMANCE_ID, BOOKING_STATUS, CREATED_AT) "
-                       + "VALUES (SEQ_BOOKING.NEXTVAL, ?, ?, ?, SYSDATE)";
+                    + "VALUES (SEQ_BOOKING.NEXTVAL, ?, ?, ?, SYSDATE)";
             jdbc.setSqlAndParameters(sql, new Object[] { memberId, performanceId, status });
             jdbc.executeUpdate();
             jdbc.commit();
 
             jdbc.setSqlAndParameters("SELECT MAX(BOOKING_ID) FROM BOOKING", null);
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
         } finally {
             jdbc.close();
         }
@@ -231,26 +244,27 @@ public class BookingSeatDAOTest {
         try {
             jdbc.setSqlAndParameters("SELECT MAX(BOOKING_SEAT_ID) FROM BOOKING_SEAT", null);
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
         } finally {
             jdbc.close();
         }
         return -1;
     }
-    
+
     private long[] findAnyGradeAndPerformance() throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
-            jdbc.setSqlAndParameters(
-                "SELECT GRADE_ID, PERFORMANCE_ID FROM SEAT_GRADE WHERE ROWNUM = 1", null);
+            jdbc.setSqlAndParameters("SELECT GRADE_ID, PERFORMANCE_ID FROM SEAT_GRADE WHERE ROWNUM = 1", null);
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return new long[] { rs.getLong(1), rs.getLong(2) };
+            if (rs.next())
+                return new long[] { rs.getLong(1), rs.getLong(2) };
         } finally {
             jdbc.close();
         }
         return null;
     }
-    
+
     private long findAnyId(String table, String idColumn) throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
