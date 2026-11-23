@@ -10,6 +10,8 @@
 
 -
 
+- [ ] (프론트 변경 시) `npm run lint`, `npm run build` 통과
+
 ## 확인 요청 사항
 
 -
