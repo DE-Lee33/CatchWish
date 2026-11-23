@@ -20,6 +20,8 @@ npm run dev      # http://localhost:5173
 
 > `npm run dev`는 타입 오류가 있어도 화면이 뜹니다. 타입 검사는 `npm run build`가 합니다.
 
+PR을 올리면 GitHub Actions(`frontend-ci`)가 `npm ci → lint → build`를 자동으로 돌립니다. 실패하면 PR에 ❌가 뜨니 고친 뒤 다시 push하세요.
+
 ## 백엔드 연결
 
 - 화면 코드는 API를 항상 `/api/...` 경로로 부릅니다 (`src/api/client.ts` 사용)
