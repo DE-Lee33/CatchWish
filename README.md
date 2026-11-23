@@ -28,7 +28,7 @@
 
 | 구분 | 기술 |
 |---|---|
-| Frontend | React (Vite) |
+| Frontend | React + TypeScript (Vite), React Router, axios |
 | Backend | Java 21, Spring MVC 6.2 (Controller 단계에서 추가 예정) |
 | DB | Oracle 12c |
 | DB 접근 | JDBC (수업 예제 JDBCUtil) |
@@ -62,7 +62,7 @@ CatchWish/
 │     ├─ main/resources/     db.properties (깃에 안 올림), db.properties.example
 │     ├─ main/webapp/        web.xml 등 (Controller 단계)
 │     └─ test/java/          DAO 테스트
-├─ frontend/                 React (Vite, 나중에)
+├─ frontend/                 React + TypeScript (Vite) 화면 (자세한 구조: frontend/README.md)
 ├─ db/                       DB 사용 규칙, 스키마 변경 기록(migrations)
 ├─ docs/                     협업 규칙, 상태값 코드표
 └─ .github/                  PR 템플릿
@@ -70,7 +70,7 @@ CatchWish/
 
 ## 처음 시작하기
 
-1. **설치:** JDK 21, Tomcat 10.1, Eclipse (Enterprise Java)
+1. **설치:** JDK 21, Tomcat 10.1, Eclipse (Enterprise Java), Node.js 20.19 이상 또는 22.12 이상
 2. **Eclipse 인코딩:** Window > Preferences > General > Workspace > Text file encoding → `UTF-8`
 3. **clone**
    ```bash
@@ -81,7 +81,13 @@ CatchWish/
    - `db.properties`는 `.gitignore`에 등록되어 있어 커밋되지 않습니다. **계정 정보를 다른 파일에 적지 마세요**
 6. **연결 확인:** `backend/src/test/java/model/dao/ConnectionTest.java` 우클릭 > Run As > JUnit Test → 초록색이면 성공
    - `db.properties`가 없으면 테스트가 건너뛰어집니다
-7. **작업 시작:** `dev` 브랜치에서 시작 (자세한 흐름은 [CONVENTIONS.md](docs/CONVENTIONS.md))
+7. **프론트 실행:** 터미널에서 아래 실행 후 `http://localhost:5173` 접속 (자세한 내용은 [frontend/README.md](frontend/README.md))
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+8. **작업 시작:** `dev` 브랜치에서 시작 (자세한 흐름은 [CONVENTIONS.md](docs/CONVENTIONS.md))
    ```bash
    git checkout dev
    ```
@@ -92,3 +98,4 @@ CatchWish/
 - [docs/CONVENTIONS.md](docs/CONVENTIONS.md) — 브랜치·커밋·PR·코드 규칙
 - [docs/STATUS_CODES.md](docs/STATUS_CODES.md) — 상태값 코드표
 - [db/README.md](db/README.md) — DB 사용 규칙, 스키마 변경 기록 방법
+- [frontend/README.md](frontend/README.md) — 프론트 실행 방법, 폴더 구조, 작업 규칙

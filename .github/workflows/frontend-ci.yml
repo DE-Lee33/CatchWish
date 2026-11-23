@@ -1,0 +1,30 @@
+# PR마다 프론트 린트·빌드(타입 검사)를 돌린다. 브랜치 보호 규칙에서 이 검사를 필수로 지정하면 실패한 PR은 merge 불가
+# frontend 경로 필터를 걸지 않는 이유: 필터로 검사가 안 돌면 필수 검사가 "대기 중"으로 남아 백엔드 PR까지 merge가 막힘
+name: frontend-ci
+
+on:
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  frontend-ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # package-lock.json 버전 그대로 설치 (팀원 PC와 같은 버전)
+      - run: npm ci
+
+      - run: npm run lint
+
+      # tsc 타입 검사 + vite 빌드
+      - run: npm run build

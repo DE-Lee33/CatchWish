@@ -1,11 +1,22 @@
+/*
+ * [변경 요약] QueueDAO  (표시: [수정] [추가])
+ * [추가] import java.sql.SQLException
+ * [수정] insertQueue, updateQueueStatus, issueAuthCode, verifyAuthCode의 catch 블록:
+ *        rollback()을 try/catch로 감쌈 (선택: 원래 예외 보존, 필수는 아님)
+ * 변경 없음: 모든 메서드가 throws Exception이라 컴파일 에러 없음
+ */
 
 package model.dao;
 
 import java.sql.ResultSet;
+import java.sql.SQLException;   // [추가]
+
+import org.springframework.stereotype.Repository;
 
 import model.domain.Queue;
 import model.dto.QueueStatusDTO;
 
+@Repository
 public class QueueDAO {
 
     // 1. 대기열 진입
@@ -61,7 +72,7 @@ public class QueueDAO {
             return queueId;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw ex;
         } finally {
             jdbcUtil.close();
@@ -170,7 +181,7 @@ public class QueueDAO {
             return result;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw ex;
         } finally {
             jdbcUtil.close();
@@ -199,7 +210,7 @@ public class QueueDAO {
             return result;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw ex;
         } finally {
             jdbcUtil.close();
@@ -231,7 +242,7 @@ public class QueueDAO {
             return result;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw ex;
         } finally {
             jdbcUtil.close();
