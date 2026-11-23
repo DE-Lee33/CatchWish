@@ -110,7 +110,7 @@ public class SeatLayoutDAOTest {
         createdSectorId = insertTestSector(createdSeatLayoutId, "VIP구역", existingGradeId, existingPerformanceId);
         
         // 테스트용 좌석 생성 (선점 상태 'H'로 생성)
-        createdSeatId = insertTestSeat(createdSeatLayoutId, createdSectorId, 1, 1, "V-1", "H");
+        createdSeatId = insertTestSeat(createdSeatLayoutId, createdSectorId, "A", 1, "V-1", "H");
 
         // 선점된 좌석을 예매완료('B')로 변경 테스트
         int bookResult = seatLayoutDao.updateSeatStatusToBooked(createdSeatId);
@@ -171,7 +171,7 @@ public class SeatLayoutDAOTest {
         return -1;
     }
 
-    private long insertTestSeat(long layoutId, long sectorId, int row, int col, String seatNum, String status) throws Exception {
+    private long insertTestSeat(long layoutId, long sectorId, String row, int col, String seatNum, String status) throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
             String sql = "INSERT INTO SEAT (SEAT_ID, SEAT_LAYOUT_ID, SECTOR_ID, ROW_NUM, COLUMN_NUM, SEAT_NUMBER, SEAT_STATUS) "
