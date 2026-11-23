@@ -27,6 +27,7 @@ public class BookingSeatDAOTest {
     private long existingGradeId = 0;
     private long existingPerformanceId = 0;
     private long existingMemberId = 0;
+    private long testPaymentId = 0;
 
     @Before
     public void setUp() throws Exception {
@@ -53,12 +54,14 @@ public class BookingSeatDAOTest {
 
         // 예매: 같은 PERFORMANCE_ID 사용
         testBookingId = insertTestBooking(existingMemberId, existingPerformanceId, "W");
+        testPaymentId = insertTestPayment(testBookingId);
+        linkPaymentToBooking(testBookingId, testPaymentId);
     }
 
     @After
     public void tearDown() throws Exception {
         if (testSeatLayoutId == 0 && testSectorId == 0 && testSeatId == 0 && testBookingId == 0
-                && testBookingSeatId == 0 && testVenueId == 0) {
+                && testBookingSeatId == 0 && testVenueId == 0 && testPaymentId == 0) {
             return;
         }
 
@@ -69,6 +72,16 @@ public class BookingSeatDAOTest {
             if (testBookingSeatId > 0) {
                 jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING_SEAT WHERE BOOKING_SEAT_ID = ?",
                         new Object[] { testBookingSeatId });
+                jdbcUtil.executeUpdate();
+            }
+            if (testBookingId > 0) {
+                jdbcUtil.setSqlAndParameters("UPDATE BOOKING SET PAYMENT_ID = NULL WHERE BOOKING_ID = ?",
+                        new Object[] { testBookingId });
+                jdbcUtil.executeUpdate();
+            }
+            if (testPaymentId > 0) {
+                jdbcUtil.setSqlAndParameters("DELETE FROM PAYMENT WHERE PAYMENT_ID = ?",
+                        new Object[] { testPaymentId });
                 jdbcUtil.executeUpdate();
             }
             if (testBookingId > 0) {
@@ -139,7 +152,7 @@ public class BookingSeatDAOTest {
         int result = bookingSeatDao.restoreCancelledAndExpiredSeats();
         assertTrue("만료 및 취소 좌석 복원 쿼리가 정상 실행되어야 합니다.", result >= 0);
     }
-
+    
     // --- 테스트 데이터 세팅용 헬퍼 메서드들 ---
 
     private long insertTestVenue(String name, int capacity) throws Exception {
@@ -279,4 +292,38 @@ public class BookingSeatDAOTest {
         }
         return -1;
     }
+    
+    private long insertTestPayment(long bookingId) throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            jdbc.setSqlAndParameters("SELECT SEQ_PAYMENT.NEXTVAL FROM DUAL", null);
+            ResultSet rs = jdbc.executeQuery();
+            long paymentId = -1;
+            if (rs.next())
+                paymentId = rs.getLong(1);
+
+            jdbc.setSqlAndParameters(
+                    "INSERT INTO PAYMENT (PAYMENT_ID, PAYMENT_AMOUNT, PAYMENT_METHOD, PAYMENT_STATUS, "
+                    + "PAID_AT, TRANSACTION_ID, BOOKING_ID) VALUES (?, ?, ?, ?, SYSDATE, ?, ?)",
+                    new Object[] { paymentId, 50000, "CARD", "P", "TEST-TX-" + paymentId, bookingId });
+            jdbc.executeUpdate();
+            jdbc.commit();
+            return paymentId;
+        } finally {
+            jdbc.close();
+        }
+    }
+
+    private void linkPaymentToBooking(long bookingId, long paymentId) throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            jdbc.setSqlAndParameters("UPDATE BOOKING SET PAYMENT_ID = ? WHERE BOOKING_ID = ?",
+                    new Object[] { paymentId, bookingId });
+            jdbc.executeUpdate();
+            jdbc.commit();
+        } finally {
+            jdbc.close();
+        }
+    }
+
 }
