@@ -16,6 +16,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 @EnableWebMvc
-@ComponentScan(basePackages = { "controller", "model.manager", "common" })
+@ComponentScan(basePackages = { "controller", "model.manager", "model.dao", "common"})
 public class WebConfig implements WebMvcConfigurer {
 }
