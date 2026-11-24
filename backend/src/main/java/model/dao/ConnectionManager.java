@@ -10,9 +10,9 @@ import org.apache.commons.dbcp2.BasicDataSource;
 public class ConnectionManager {
     // 접속 정보는 깃에 올리지 않는 db.properties(src/main/resources)에서 읽는다
     private static final String DB_PROPERTIES = "db.properties";
-    private static DataSource ds = null;
+    private static final DataSource ds = createDataSource();  // 클래스 로딩 시 1회만 생성
 
-    public ConnectionManager() {
+    public static DataSource createDataSource() {
     	try (InputStream in = ConnectionManager.class.getClassLoader().getResourceAsStream(DB_PROPERTIES)) {
 			if (in == null) {
 				throw new IllegalStateException(DB_PROPERTIES + "가 없습니다. db.properties.example을 복사해서 만들어주세요.");
@@ -26,43 +26,38 @@ public class ConnectionManager {
 	        bds.setUrl(props.getProperty("db.url"));
 	        bds.setUsername(props.getProperty("db.username"));
 	        bds.setPassword(props.getProperty("db.password"));
-			ds = bds;
+	        return bds;
 			
 			// 참고: WAS의 DataSource를 이용할 경우: 
 			// 		Context init = new InitialContext();
 			// 		ds = (DataSource)init.lookup("java:comp/env/jdbc/OracleDS");
 		} catch (Exception ex) {
-			ex.printStackTrace();
-		}    	   
+		    throw new ExceptionInInitializerError(ex); // 설정 오류를 삼키지 않고 바로 드러냄 (안 그러면 ds가 null이 되어 나중에 NPE)
+        }          
     }
 
-    public Connection getConnection() {
-    	Connection conn = null;
-    	try {
-			conn = ds.getConnection();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return conn;
+    public ConnectionManager() {}
+
+    public Connection getConnection() throws SQLException {
+        return ds.getConnection();
     }
     
     public void close() {
-		BasicDataSource bds = (BasicDataSource) ds;
-		try {
-			bds.close();
-		} catch (SQLException ex) {
-			ex.printStackTrace();
-		}
-	}
+        try {
+            ((BasicDataSource) ds).close();
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    }
 
-	// 현재 활성화 상태인 Connection 의 개수와 비활성화 상태인 Connection 개수 출력
-	public void printDataSourceStats() {
-		try {
-			BasicDataSource bds = (BasicDataSource) ds;
-			System.out.println("NumActive: " + bds.getNumActive());
-			System.out.println("NumIdle: " + bds.getNumIdle());
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}   
-	}
+    // 현재 활성화 상태인 Connection 의 개수와 비활성화 상태인 Connection 개수 출력
+    public void printDataSourceStats() {
+        try {
+            BasicDataSource bds = (BasicDataSource) ds;
+            System.out.println("NumActive: " + bds.getNumActive());
+            System.out.println("NumIdle: " + bds.getNumIdle());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }   
+    }
 }

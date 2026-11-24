@@ -1,3 +1,13 @@
+/*
+ * [변경 요약] PerformanceDAO  (표시: [수정] [추가] [삭제])
+ * [삭제] private JDBCUtil jdbcUtil 필드, 생성자 (요청 간 Connection 공유 방지)
+ * [수정] findById, findGradeList, findMyList, findListByStatus, findRentalProof, findPage,
+ *        queryCount, executeChange: 메서드 안에서 JDBCUtil 지역 생성, executeQueryOrThrow -> executeQuery
+ * [추가] M9용 트랜잭션 참여용 오버로드 3개: create, createGrade, createRentalProof
+ * [수정] 위 3개의 단독용 메서드는 참여용을 호출하고 commit
+ * [수정] nextSequence, rollbackQuietly: JDBCUtil을 파라미터로 받음
+ * [삭제] executeQueryOrThrow (JDBCUtil.executeQuery()가 예외를 던지므로 불필요)
+ */
 package model.dao;
 
 import java.sql.ResultSet;
@@ -6,6 +16,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+
+import org.springframework.stereotype.Repository;
 
 import model.domain.Performance;
 import model.domain.SeatGrade;
@@ -22,6 +34,7 @@ import model.dto.MyPerformanceSummary;
  * 참고: M9처럼 공연·등급·증빙·좌석을 한 번에 넣는 작업은 Manager 단계에서 하나의 트랜잭션으로 묶어야 한다.
  *      지금은 팀 규칙대로 메서드마다 commit한다.
  */
+@Repository
 public class PerformanceDAO {
 	private static final String STATUS_APPROVED = Performance.STATUS_APPROVED;
 	private static final String STATUS_PENDING = Performance.STATUS_PENDING;
@@ -29,11 +42,11 @@ public class PerformanceDAO {
 	/** 좌석 상태 코드 A: 예매 가능 */
 	private static final String SEAT_AVAILABLE = "A";
 
-	private JDBCUtil jdbcUtil = null;
+	// [삭제] private JDBCUtil jdbcUtil = null;
 
-	public PerformanceDAO() {
-		jdbcUtil = new JDBCUtil();
-	}
+	// [삭제] public PerformanceDAO() {
+	// [삭제] 	jdbcUtil = new JDBCUtil();
+	// [삭제] }
 
 	// ===================== M4·M5 목록·검색 (승인된 공연만) =====================
 
@@ -43,7 +56,7 @@ public class PerformanceDAO {
 	 * @param page  1부터 시작
 	 * @param size  한 페이지 개수
 	 */
-	public List<Performance> findApprovedList(String genre, int page, int size) throws SQLException {
+	public List<Performance> findApprovedList(String genre, int page, int size) throws Exception {
 		List<Object> params = new ArrayList<>();
 		StringBuilder where = new StringBuilder("WHERE APPROVAL_STATUS = ? ");
 		params.add(STATUS_APPROVED);
@@ -52,7 +65,7 @@ public class PerformanceDAO {
 	}
 
 	/** M4 승인된 공연 수 (페이지 수 계산용) */
-	public int countApproved(String genre) throws SQLException {
+	public int countApproved(String genre) throws Exception {
 		List<Object> params = new ArrayList<>();
 		StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM PERFORMANCE WHERE APPROVAL_STATUS = ? ");
 		params.add(STATUS_APPROVED);
@@ -65,7 +78,7 @@ public class PerformanceDAO {
 	 * @param keyword 검색어 (앞뒤에 %를 붙여서 부분 일치)
 	 * @param genre   장르 (null 또는 빈 문자열이면 전체)
 	 */
-	public List<Performance> search(String keyword, String genre, int page, int size) throws SQLException {
+	public List<Performance> search(String keyword, String genre, int page, int size) throws Exception {
 		List<Object> params = new ArrayList<>();
 		StringBuilder where = new StringBuilder();
 		appendSearchCondition(where, params, keyword, genre);
@@ -73,7 +86,7 @@ public class PerformanceDAO {
 	}
 
 	/** M5 검색 결과 수 */
-	public int countSearch(String keyword, String genre) throws SQLException {
+	public int countSearch(String keyword, String genre) throws Exception {
 		List<Object> params = new ArrayList<>();
 		StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM PERFORMANCE ");
 		appendSearchCondition(sql, params, keyword, genre);
@@ -83,11 +96,12 @@ public class PerformanceDAO {
 	// ===================== M6 상세 =====================
 
 	/** M6·M10 공연 상세: 없으면 null (승인 여부 판단은 Manager에서) */
-	public Performance findById(long performanceId) throws SQLException {
+	public Performance findById(long performanceId) throws Exception {
+		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
 		jdbcUtil.setSqlAndParameters("SELECT * FROM PERFORMANCE WHERE PERFORMANCE_ID = ?",
 				new Object[] { performanceId });
 		try {
-			ResultSet rs = executeQueryOrThrow();
+			ResultSet rs = jdbcUtil.executeQuery();   // [수정] executeQueryOrThrow() -> executeQuery()
 			return rs.next() ? mapPerformance(rs) : null;
 		} finally {
 			jdbcUtil.close();
@@ -95,13 +109,14 @@ public class PerformanceDAO {
 	}
 
 	/** M6 좌석 등급·가격 목록 (비싼 등급부터) */
-	public List<SeatGrade> findGradeList(long performanceId) throws SQLException {
+	public List<SeatGrade> findGradeList(long performanceId) throws Exception {
+		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
 		jdbcUtil.setSqlAndParameters(
 				"SELECT GRADE_ID, PERFORMANCE_ID, GRADE_NAME, PRICE FROM SEAT_GRADE "
 						+ "WHERE PERFORMANCE_ID = ? ORDER BY PRICE DESC",
 				new Object[] { performanceId });
 		try {
-			ResultSet rs = executeQueryOrThrow();
+			ResultSet rs = jdbcUtil.executeQuery();   // [수정]
 			List<SeatGrade> list = new ArrayList<>();
 			while (rs.next()) {
 				SeatGrade grade = new SeatGrade();
@@ -120,7 +135,7 @@ public class PerformanceDAO {
 	// ===================== M8 내가 등록한 공연 =====================
 
 	/** M8 내가 등록한 공연 + 전체 좌석 수·잔여석 수 (심사 상태와 무관하게 전부, 최근 등록 순) */
-	public List<MyPerformanceSummary> findMyList(long registrantId) throws SQLException {
+	public List<MyPerformanceSummary> findMyList(long registrantId) throws Exception {
 		String sql = "SELECT p.*, "
 				+ "  (SELECT COUNT(*) FROM SEAT s JOIN SECTOR sc ON s.SECTOR_ID = sc.SECTOR_ID "
 				+ "    WHERE sc.PERFORMANCE_ID = p.PERFORMANCE_ID) AS TOTAL_SEATS, "
@@ -129,9 +144,10 @@ public class PerformanceDAO {
 				+ "FROM PERFORMANCE p "
 				+ "WHERE p.REGISTRANT_ID = ? "
 				+ "ORDER BY p.CREATED_AT DESC";
+		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
 		jdbcUtil.setSqlAndParameters(sql, new Object[] { SEAT_AVAILABLE, registrantId });
 		try {
-			ResultSet rs = executeQueryOrThrow();
+			ResultSet rs = jdbcUtil.executeQuery();   // [수정]
 			List<MyPerformanceSummary> list = new ArrayList<>();
 			while (rs.next()) {
 				list.add(new MyPerformanceSummary(mapPerformance(rs),
@@ -146,75 +162,99 @@ public class PerformanceDAO {
 	// ===================== M9 등록 =====================
 
 	/** M9 공연 등록: 심사중(P) 상태로 저장하고 생성된 공연 번호를 반환 */
+	// [수정] 단독용: 참여용을 호출하고 commit
 	public long create(Performance p) throws SQLException {
-		String sql = "INSERT INTO PERFORMANCE (PERFORMANCE_ID, REGISTRANT_ID, VENUE_TEMPLATE_ID, PERFORMANCE_NAME, GENRE, "
-				+ "CAST_INFO, DESCRIPTION, POSTER_URL, RUNNING_TIME, SHOW_AT, BOOKING_OPEN_AT, "
-				+ "CANCEL_DEADLINE_AT, MAX_TICKETS_PER_MEMBER, VENUE_NAME, VENUE_ADDRESS, "
-				+ "APPROVAL_STATUS, CREATED_AT) "
-				+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSDATE)";
+		JDBCUtil jdbcUtil = new JDBCUtil();
 		try {
-			long performanceId = nextSequence("SEQ_PERFORMANCE");
-			jdbcUtil.setSqlAndParameters(sql, new Object[] {
-					performanceId, p.getRegistrantId(), p.getVenueTemplateId(),
-					p.getPerformanceName(), p.getGenre(), p.getCastInfo(), p.getDescription(),
-					p.getPosterUrl(), p.getRunningTime(), toTimestamp(p.getShowAt()),
-					toTimestamp(p.getBookingOpenAt()), toTimestamp(p.getCancelDeadlineAt()),
-					p.getMaxTicketsPerMember(), p.getVenueName(), p.getVenueAddress(),
-					STATUS_PENDING });
-			jdbcUtil.executeUpdate();
+			long performanceId = create(jdbcUtil, p);
 			jdbcUtil.commit();
-
-			p.setPerformanceId(performanceId);
-			p.setApprovalStatus(STATUS_PENDING);
 			return performanceId;
 		} catch (Exception ex) {
-			rollbackQuietly();
+			rollbackQuietly(jdbcUtil);
 			throw toSQLException("공연 등록 실패", ex);
 		} finally {
 			jdbcUtil.close();
 		}
 	}
 
-	/** M9 좌석 등급 등록: 섹터가 이 등급을 참조하므로 생성된 등급 번호를 반환 */
-	public long createGrade(SeatGrade grade) throws SQLException {
-		String sql = "INSERT INTO SEAT_GRADE (GRADE_ID, PERFORMANCE_ID, GRADE_NAME, PRICE) VALUES (?, ?, ?, ?)";
-		try {
-			long gradeId = nextSequence("SEQ_SEAT_GRADE");
-			jdbcUtil.setSqlAndParameters(sql, new Object[] {
-					gradeId, grade.getPerformanceId(), grade.getGradeName(), grade.getPrice() });
-			jdbcUtil.executeUpdate();
-			jdbcUtil.commit();
+	// [추가] 트랜잭션 참여용 (commit/rollback/close는 호출한 쪽에서)
+	public long create(JDBCUtil jdbcUtil, Performance p) throws Exception {
+		String sql = "INSERT INTO PERFORMANCE (PERFORMANCE_ID, REGISTRANT_ID, VENUE_TEMPLATE_ID, PERFORMANCE_NAME, GENRE, "
+				+ "CAST_INFO, DESCRIPTION, POSTER_URL, RUNNING_TIME, SHOW_AT, BOOKING_OPEN_AT, "
+				+ "CANCEL_DEADLINE_AT, MAX_TICKETS_PER_MEMBER, VENUE_NAME, VENUE_ADDRESS, "
+				+ "APPROVAL_STATUS, CREATED_AT) "
+				+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSDATE)";
+		long performanceId = nextSequence(jdbcUtil, "SEQ_PERFORMANCE");
+		jdbcUtil.setSqlAndParameters(sql, new Object[] {
+				performanceId, p.getRegistrantId(), p.getVenueTemplateId(),
+				p.getPerformanceName(), p.getGenre(), p.getCastInfo(), p.getDescription(),
+				p.getPosterUrl(), p.getRunningTime(), toTimestamp(p.getShowAt()),
+				toTimestamp(p.getBookingOpenAt()), toTimestamp(p.getCancelDeadlineAt()),
+				p.getMaxTicketsPerMember(), p.getVenueName(), p.getVenueAddress(),
+				STATUS_PENDING });
+		jdbcUtil.executeUpdate();
 
-			grade.setGradeId(gradeId);
+		p.setPerformanceId(performanceId);
+		p.setApprovalStatus(STATUS_PENDING);
+		return performanceId;
+	}
+
+	/** M9 좌석 등급 등록: 섹터가 이 등급을 참조하므로 생성된 등급 번호를 반환 */
+	// [수정] 단독용
+	public long createGrade(SeatGrade grade) throws SQLException {
+		JDBCUtil jdbcUtil = new JDBCUtil();
+		try {
+			long gradeId = createGrade(jdbcUtil, grade);
+			jdbcUtil.commit();
 			return gradeId;
 		} catch (Exception ex) {
-			rollbackQuietly();
+			rollbackQuietly(jdbcUtil);
 			throw toSQLException("좌석 등급 등록 실패", ex);
 		} finally {
 			jdbcUtil.close();
 		}
 	}
 
-	/** M9 대관 증빙 등록: 생성된 증빙 번호를 반환 */
-	public long createRentalProof(VenueRentalProof proof) throws SQLException {
-		String sql = "INSERT INTO VENUE_RENTAL_PROOF (PROOF_ID, PERFORMANCE_ID, FILE_PATH, ORIGINAL_FILE_NAME, "
-				+ "RENTAL_START_AT, RENTAL_END_AT, SUBMITTED_AT) VALUES (?, ?, ?, ?, ?, ?, SYSDATE)";
-		try {
-			long proofId = nextSequence("SEQ_RENTAL_PROOF");
-			jdbcUtil.setSqlAndParameters(sql, new Object[] {
-					proofId, proof.getPerformanceId(), proof.getFilePath(), proof.getOriginalFileName(),
-					toTimestamp(proof.getRentalStartAt()), toTimestamp(proof.getRentalEndAt()) });
-			jdbcUtil.executeUpdate();
-			jdbcUtil.commit();
+	// [추가] 트랜잭션 참여용
+	public long createGrade(JDBCUtil jdbcUtil, SeatGrade grade) throws Exception {
+		String sql = "INSERT INTO SEAT_GRADE (GRADE_ID, PERFORMANCE_ID, GRADE_NAME, PRICE) VALUES (?, ?, ?, ?)";
+		long gradeId = nextSequence(jdbcUtil, "SEQ_SEAT_GRADE");
+		jdbcUtil.setSqlAndParameters(sql, new Object[] {
+				gradeId, grade.getPerformanceId(), grade.getGradeName(), grade.getPrice() });
+		jdbcUtil.executeUpdate();
 
-			proof.setProofId(proofId);
+		grade.setGradeId(gradeId);
+		return gradeId;
+	}
+
+	/** M9 대관 증빙 등록: 생성된 증빙 번호를 반환 */
+	// [수정] 단독용
+	public long createRentalProof(VenueRentalProof proof) throws SQLException {
+		JDBCUtil jdbcUtil = new JDBCUtil();
+		try {
+			long proofId = createRentalProof(jdbcUtil, proof);
+			jdbcUtil.commit();
 			return proofId;
 		} catch (Exception ex) {
-			rollbackQuietly();
+			rollbackQuietly(jdbcUtil);
 			throw toSQLException("대관 증빙 등록 실패", ex);
 		} finally {
 			jdbcUtil.close();
 		}
+	}
+
+	// [추가] 트랜잭션 참여용
+	public long createRentalProof(JDBCUtil jdbcUtil, VenueRentalProof proof) throws Exception {
+		String sql = "INSERT INTO VENUE_RENTAL_PROOF (PROOF_ID, PERFORMANCE_ID, FILE_PATH, ORIGINAL_FILE_NAME, "
+				+ "RENTAL_START_AT, RENTAL_END_AT, SUBMITTED_AT) VALUES (?, ?, ?, ?, ?, ?, SYSDATE)";
+		long proofId = nextSequence(jdbcUtil, "SEQ_RENTAL_PROOF");
+		jdbcUtil.setSqlAndParameters(sql, new Object[] {
+				proofId, proof.getPerformanceId(), proof.getFilePath(), proof.getOriginalFileName(),
+				toTimestamp(proof.getRentalStartAt()), toTimestamp(proof.getRentalEndAt()) });
+		jdbcUtil.executeUpdate();
+
+		proof.setProofId(proofId);
+		return proofId;
 	}
 
 	// ===================== M10 수정 =====================
@@ -268,7 +308,7 @@ public class PerformanceDAO {
 	}
 
 	/** M11 예매 내역 존재 여부 (있으면 삭제 불가) */
-	public boolean hasBookings(long performanceId) throws SQLException {
+	public boolean hasBookings(long performanceId) throws Exception {
 		return queryCount("SELECT COUNT(*) FROM BOOKING WHERE PERFORMANCE_ID = ?",
 				new Object[] { performanceId }) > 0;
 	}
@@ -276,11 +316,12 @@ public class PerformanceDAO {
 	// ===================== M30 관리자 심사 =====================
 
 	/** M30-1 심사 상태별 공연 목록 (심사 대기 목록은 "P", 먼저 신청한 순) */
-	public List<Performance> findListByStatus(String approvalStatus) throws SQLException {
+	public List<Performance> findListByStatus(String approvalStatus) throws Exception {
+		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
 		jdbcUtil.setSqlAndParameters("SELECT * FROM PERFORMANCE WHERE APPROVAL_STATUS = ? ORDER BY CREATED_AT",
 				new Object[] { approvalStatus });
 		try {
-			ResultSet rs = executeQueryOrThrow();
+			ResultSet rs = jdbcUtil.executeQuery();   // [수정]
 			List<Performance> list = new ArrayList<>();
 			while (rs.next()) {
 				list.add(mapPerformance(rs));
@@ -292,13 +333,14 @@ public class PerformanceDAO {
 	}
 
 	/** M30-1 심사 상세의 대관 증빙: 없으면 null */
-	public VenueRentalProof findRentalProof(long performanceId) throws SQLException {
+	public VenueRentalProof findRentalProof(long performanceId) throws Exception {
+		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
 		jdbcUtil.setSqlAndParameters(
 				"SELECT PROOF_ID, PERFORMANCE_ID, FILE_PATH, ORIGINAL_FILE_NAME, RENTAL_START_AT, RENTAL_END_AT, SUBMITTED_AT "
 						+ "FROM VENUE_RENTAL_PROOF WHERE PERFORMANCE_ID = ?",
 				new Object[] { performanceId });
 		try {
-			ResultSet rs = executeQueryOrThrow();
+			ResultSet rs = jdbcUtil.executeQuery();   // [수정]
 			if (!rs.next()) {
 				return null;
 			}
@@ -356,7 +398,7 @@ public class PerformanceDAO {
 	}
 
 	/** ROWNUM 페이징 공통 (공연 일시 순) */
-	private List<Performance> findPage(String where, List<Object> params, int page, int size) throws SQLException {
+	private List<Performance> findPage(String where, List<Object> params, int page, int size) throws Exception {
 		if (page < 1 || size < 1) {
 			throw new IllegalArgumentException("page와 size는 1 이상이어야 합니다.");
 		}
@@ -368,9 +410,10 @@ public class PerformanceDAO {
 		params.add(page * size);        // 이 페이지의 마지막 행 번호
 		params.add((page - 1) * size);  // 이전 페이지까지의 행 수
 
+		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
 		jdbcUtil.setSqlAndParameters(sql, params.toArray());
 		try {
-			ResultSet rs = executeQueryOrThrow();
+			ResultSet rs = jdbcUtil.executeQuery();   // [수정]
 			List<Performance> list = new ArrayList<>();
 			while (rs.next()) {
 				list.add(mapPerformance(rs));
@@ -417,10 +460,11 @@ public class PerformanceDAO {
 		return date == null ? null : new Timestamp(date.getTime());
 	}
 
-	private int queryCount(String sql, Object[] params) throws SQLException {
+	private int queryCount(String sql, Object[] params) throws Exception {
+		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
 		jdbcUtil.setSqlAndParameters(sql, params);
 		try {
-			ResultSet rs = executeQueryOrThrow();
+			ResultSet rs = jdbcUtil.executeQuery();   // [수정]
 			rs.next();
 			return rs.getInt(1);
 		} finally {
@@ -430,13 +474,14 @@ public class PerformanceDAO {
 
 	/** INSERT·UPDATE·DELETE 공통: 성공하면 commit, 실패하면 rollback */
 	private int executeChange(String sql, Object[] params, String failMessage) throws SQLException {
+		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
 		jdbcUtil.setSqlAndParameters(sql, params);
 		try {
 			int result = jdbcUtil.executeUpdate();
 			jdbcUtil.commit();
 			return result;
 		} catch (Exception ex) {
-			rollbackQuietly();
+			rollbackQuietly(jdbcUtil);   // [수정]
 			throw toSQLException(failMessage, ex);
 		} finally {
 			jdbcUtil.close();
@@ -444,26 +489,19 @@ public class PerformanceDAO {
 	}
 
 	/** 시퀀스 다음 값 조회 (close는 호출한 쪽에서) */
-	private long nextSequence(String sequenceName) throws SQLException {
+	private long nextSequence(JDBCUtil jdbcUtil, String sequenceName) throws Exception {   // [수정] 파라미터 추가
 		jdbcUtil.setSqlAndParameters("SELECT " + sequenceName + ".NEXTVAL FROM DUAL", null);
-		ResultSet rs = executeQueryOrThrow();
+		ResultSet rs = jdbcUtil.executeQuery();   // [수정]
 		if (!rs.next()) {
 			throw new SQLException(sequenceName + " 값을 가져오지 못했습니다.");
 		}
 		return rs.getLong(1);
 	}
 
-	/** JDBCUtil.executeQuery()는 실패하면 null을 반환하므로 예외로 바꿔서 알린다 */
-	private ResultSet executeQueryOrThrow() throws SQLException {
-		ResultSet rs = jdbcUtil.executeQuery();
-		if (rs == null) {
-			throw new SQLException("쿼리 실행 실패: " + jdbcUtil.getSql());
-		}
-		return rs;
-	}
+	// [삭제] executeQueryOrThrow(): JDBCUtil.executeQuery()가 이제 실패 시 예외를 던지므로 null 검사가 불필요
 
 	/** 연결을 얻기 전에 실패한 경우에도 rollback에서 다른 예외가 나지 않게 막는다 */
-	private void rollbackQuietly() {
+	private void rollbackQuietly(JDBCUtil jdbcUtil) {   // [수정] 파라미터 추가
 		try {
 			jdbcUtil.rollback();
 		} catch (Exception ignore) {

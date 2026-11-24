@@ -1,3 +1,8 @@
+/*
+ * [변경 요약] NotificationDAO  (표시: [수정] [삭제])
+ * [수정] insertNotification, updateSendStatus, updateReadStatus: rollback()을 try/catch로 감쌈
+ * [삭제] 조회 3곳의 rs == null 검사 (선택, 죽은 코드)
+ */
 package model.dao;
 
 import java.sql.ResultSet;
@@ -5,9 +10,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.stereotype.Repository;
+
 import model.domain.Notification;
 import model.domain.Wishlist;
 
+@Repository
 public class NotificationDAO {
     
     // 알림 생성
@@ -34,7 +42,7 @@ public class NotificationDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw new RuntimeException("알림 생성 실패", e);
 
         } finally {
@@ -62,9 +70,7 @@ public class NotificationDAO {
                     sql, new Object[]{scheduleId, sectorId});
 
             ResultSet rs = jdbcUtil.executeQuery();
-            if (rs == null) {
-                throw new SQLException("알림 대상 조회 실패");
-            }
+            // [삭제] if (rs == null) { throw new SQLException("알림 대상 조회 실패"); }
 
             while (rs.next()) {
                 Wishlist wishlist = new Wishlist();
@@ -101,9 +107,7 @@ public class NotificationDAO {
             jdbcUtil.setSqlAndParameters(sql, new Object[]{});
 
             ResultSet rs = jdbcUtil.executeQuery();
-            if (rs == null) {
-                throw new SQLException("발송 대기 알림 조회 실패");
-            }
+            // [삭제] if (rs == null) { throw new SQLException("발송 대기 알림 조회 실패"); }
 
             while (rs.next()) {
                 notifications.add(mapNotification(rs));
@@ -143,7 +147,7 @@ public class NotificationDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw new RuntimeException("알림 발송 상태 변경 실패", e);
 
         } finally {
@@ -165,9 +169,7 @@ public class NotificationDAO {
                     sql, new Object[]{memberId});
 
             ResultSet rs = jdbcUtil.executeQuery();
-            if (rs == null) {
-                throw new SQLException("회원별 알림 조회 실패");
-            }
+            // [삭제] if (rs == null) { throw new SQLException("회원별 알림 조회 실패"); }
 
             while (rs.next()) {
                 notifications.add(mapNotification(rs));
@@ -202,7 +204,7 @@ public class NotificationDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw new RuntimeException("알림 읽음 처리 실패", e);
 
         } finally {

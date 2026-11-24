@@ -1,3 +1,9 @@
+/*
+ * [변경 요약] SeatDAO  (표시: [수정] [추가] [삭제])
+ * [삭제] private JDBCUtil jdbcUtil 필드, 생성자 (요청 간 Connection 공유 방지)
+ * [추가] selectSeatsByLayoutId, selectSectorAvailability: 메서드 안에서 JDBCUtil 지역 생성
+ * 변경 없음: SQL, 예외 처리, rs == null 검사
+ */
 package model.dao;
 
 import java.sql.ResultSet;
@@ -5,15 +11,18 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.stereotype.Repository;
+
 import model.domain.Seat;
 import model.dto.SectorAvailabilityDTO;
 
+@Repository
 public class SeatDAO {
-    private JDBCUtil jdbcUtil = null;
+    // [삭제] private JDBCUtil jdbcUtil = null;
 
-    public SeatDAO() {
-        jdbcUtil = new JDBCUtil();
-    }
+    // [삭제] public SeatDAO() {
+    // [삭제]     jdbcUtil = new JDBCUtil();
+    // [삭제] }
 
     //특정 좌석 배치도의 전체 좌석 조회
     public List<Seat> selectSeatsByLayoutId(long seatLayoutId)
@@ -27,6 +36,7 @@ public class SeatDAO {
 
 
         List<Seat> seatList = new ArrayList<>();
+        JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
 
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] { seatLayoutId });
@@ -81,6 +91,7 @@ public class SeatDAO {
 
 
         List<SectorAvailabilityDTO> sectorList = new ArrayList<>();
+        JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
 
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] { seatLayoutId });
