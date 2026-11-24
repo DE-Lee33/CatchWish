@@ -8,7 +8,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 /**
  * Spring MVC 기본 설정.
  * - @EnableWebMvc: JSON 변환(Jackson), @RequestBody/@ResponseBody 등 MVC 기능 활성화
- * - @ComponentScan: controller, model.manager 패키지에서 @RestController, @Component 등을 찾음
+ * - @ComponentScan: controller, model.manager, model.dao, common 패키지에서
+ *   @RestController, @Service, @Repository, @RestControllerAdvice 등을 찾음
  *
  * 이후 PR에서 이 클래스에 추가될 것:
  * - 로그인 확인 인터셉터 등록 (feat/login-check)
@@ -16,6 +17,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 @EnableWebMvc
-@ComponentScan(basePackages = { "controller", "model.manager", "model.dao"})
+@ComponentScan(basePackages = { "controller", "model.manager", "model.dao", "common" })
 public class WebConfig implements WebMvcConfigurer {
 }
