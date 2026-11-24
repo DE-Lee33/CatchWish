@@ -11,8 +11,8 @@ import org.junit.Test;
 
 /**
  * BookingSeatDAO 테스트 클래스
- * 공용 DB 오염 및 데이터 부재(무결성 제약조건)를 방지하기 위해 
- * Venue부터 순서대로 직접 생성하고 테스트 종료 후 안전하게 삭제합니다.
+ * 공용 DB 오염 및 데이터 부재(무결성 제약조건)를 방지하기 위해 Venue부터 순서대로 직접
+ * 생성하고 테스트 종료 후 안전하게 삭제합니다.
  */
 public class BookingSeatDAOTest {
 
@@ -25,6 +25,10 @@ public class BookingSeatDAOTest {
     private long testSeatId = 0;
     private long testBookingId = 0;
     private long testBookingSeatId = 0;
+    private long existingSeatGradeId = 0;
+    private long existingPerformanceId = 0;
+    private long existingMemberId = 0;
+    private long testPaymentId = 0;
 
     @Before
     public void setUp() throws Exception {
@@ -32,37 +36,45 @@ public class BookingSeatDAOTest {
                 getClass().getClassLoader().getResource("db.properties") != null);
         bookingSeatDao = new BookingSeatDAO();
 
-        // 1. 테스트용 Venue(공연장) 생성 (부모)
-        testVenueId = insertTestVenue("테스트공연장_BS");
+        // 0. MEMBER 및 SEAT_GRADE의 같은 행에서 GRADE_ID, PERFORMANCE_ID 조회 (FK 충족)
+        existingMemberId = findAnyId("MEMBER", "MEMBER_ID");
+        assumeTrue("MEMBER 데이터가 필요합니다.", existingMemberId > 0);
 
-        // 2. 테스트용 레이아웃 생성 (VENUE_ID 참조)
+        long[] gp = findAnyGradeAndPerformance();
+        assumeTrue("SEAT_GRADE 데이터가 필요합니다.", gp != null);
+        existingSeatGradeId = gp[0];
+        existingPerformanceId = gp[1];
+
+        // BOOKING <-> PAYMENT 순환 FK(NOT NULL, NOT DEFERRABLE, IMMEDIATE)로 인해
+        // 신규 동시 INSERT가 불가하므로 기존 BOOKING + PAYMENT 행이 있는지 먼저 확인
+        long[] existingBp = findExistingBookingAndPayment();
+        assumeTrue("테스트용 BOOKING과 PAYMENT가 연결된 기존 데이터가 필요합니다.", existingBp != null);
+        testBookingId = existingBp[0];
+        testPaymentId = existingBp[1];
+
+        testVenueId = insertTestVenue("테스트공연장_BS", 100);
         testSeatLayoutId = insertTestSeatLayout(testVenueId, "테스트레이아웃_BS");
 
-        // 3. 테스트용 구역 생성 (GRADE_ID, PERFORMANCE_ID는 임시로 1L 지정)
-        testSectorId = insertTestSector(testSeatLayoutId, "테스트구역_BS", 1L, 1L);
+        // 구역: 조회한 GRADE_ID + PERFORMANCE_ID 쌍 사용
+        testSectorId = insertTestSector(testSeatLayoutId, "테스트구역_BS", existingSeatGradeId, existingPerformanceId);
 
-        // 4. 테스트용 물리 좌석 생성 (초기 상태 'A' : 예매 가능)
-        testSeatId = insertTestSeat(testSeatLayoutId, testSectorId, "A");
-
-        // 5. 테스트용 예매(Booking) 레코드 생성 (상태 'W' : 선점/대기)
-        testBookingId = insertTestBooking(1L, 1L, "W");
+        // ROW_NUM은 VARCHAR2(10) 컬럼에 맞춰 10자 이내 문자열('A')로 입력
+        testSeatId = insertTestSeat(testSeatLayoutId, testSectorId, "A", "A");
     }
 
     @After
     public void tearDown() throws Exception {
-        if (testSeatLayoutId == 0 && testSectorId == 0 && testSeatId == 0 && testBookingId == 0 && testBookingSeatId == 0 && testVenueId == 0) {
+        if (testSeatLayoutId == 0 && testSectorId == 0 && testSeatId == 0 && testBookingSeatId == 0
+                && testVenueId == 0) {
             return;
         }
 
         JDBCUtil jdbcUtil = new JDBCUtil();
         try {
-            // 외래키 제약조건 역순으로 안전하게 삭제 (BookingSeat -> Booking -> Seat -> Sector -> SeatLayout -> Venue)
+            // 외래키 제약조건 역순으로 안전하게 삭제 (공용 BOOKING/PAYMENT는 유지)
             if (testBookingSeatId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING_SEAT WHERE BOOKING_SEAT_ID = ?", new Object[] { testBookingSeatId });
-                jdbcUtil.executeUpdate();
-            }
-            if (testBookingId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING WHERE BOOKING_ID = ?", new Object[] { testBookingId });
+                jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING_SEAT WHERE BOOKING_SEAT_ID = ?",
+                        new Object[] { testBookingSeatId });
                 jdbcUtil.executeUpdate();
             }
             if (testSeatId > 0) {
@@ -74,7 +86,8 @@ public class BookingSeatDAOTest {
                 jdbcUtil.executeUpdate();
             }
             if (testSeatLayoutId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM SEAT_LAYOUT WHERE SEAT_LAYOUT_ID = ?", new Object[] { testSeatLayoutId });
+                jdbcUtil.setSqlAndParameters("DELETE FROM SEAT_LAYOUT WHERE SEAT_LAYOUT_ID = ?",
+                        new Object[] { testSeatLayoutId });
                 jdbcUtil.executeUpdate();
             }
             if (testVenueId > 0) {
@@ -85,7 +98,8 @@ public class BookingSeatDAOTest {
         } catch (Exception e) {
             try {
                 jdbcUtil.rollback();
-            } catch (Exception ignore) {}
+            } catch (Exception ignore) {
+            }
             throw e;
         } finally {
             jdbcUtil.close();
@@ -129,17 +143,35 @@ public class BookingSeatDAOTest {
 
     // --- 테스트 데이터 세팅용 헬퍼 메서드들 ---
 
-    private long insertTestVenue(String name) throws Exception {
+    private long[] findExistingBookingAndPayment() throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
-            String sql = "INSERT INTO VENUE (VENUE_ID, VENUE_NAME) VALUES (SEQ_VENUE.NEXTVAL, ?)";
-            jdbc.setSqlAndParameters(sql, new Object[] { name });
+            String sql = "SELECT B.BOOKING_ID, P.PAYMENT_ID "
+                    + "FROM BOOKING B JOIN PAYMENT P ON B.BOOKING_ID = P.BOOKING_ID "
+                    + "WHERE ROWNUM = 1";
+            jdbc.setSqlAndParameters(sql, null);
+            ResultSet rs = jdbc.executeQuery();
+            if (rs.next()) {
+                return new long[] { rs.getLong(1), rs.getLong(2) };
+            }
+        } finally {
+            jdbc.close();
+        }
+        return null;
+    }
+
+    private long insertTestVenue(String name, int capacity) throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            String sql = "INSERT INTO VENUE (VENUE_ID, VENUE_NAME, VENUE_CAPACITY) VALUES (SEQ_VENUE.NEXTVAL, ?, ?)";
+            jdbc.setSqlAndParameters(sql, new Object[] { name, capacity });
             jdbc.executeUpdate();
             jdbc.commit();
 
             jdbc.setSqlAndParameters("SELECT MAX(VENUE_ID) FROM VENUE", null);
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
         } finally {
             jdbc.close();
         }
@@ -150,72 +182,75 @@ public class BookingSeatDAOTest {
         JDBCUtil jdbc = new JDBCUtil();
         try {
             String sql = "INSERT INTO SEAT_LAYOUT (SEAT_LAYOUT_ID, VENUE_ID, SEAT_LAYOUT_NAME, IS_TEMPLATE) "
-                       + "VALUES (SEQ_SEAT_LAYOUT.NEXTVAL, ?, ?, 'Y')";
+                    + "VALUES (SEQ_SEAT_LAYOUT.NEXTVAL, ?, ?, 'Y')";
             jdbc.setSqlAndParameters(sql, new Object[] { venueId, name });
             jdbc.executeUpdate();
             jdbc.commit();
-            
-            jdbc.setSqlAndParameters("SELECT MAX(SEAT_LAYOUT_ID) FROM SEAT_LAYOUT WHERE VENUE_ID = ?", new Object[] { venueId });
+
+            jdbc.setSqlAndParameters("SELECT MAX(SEAT_LAYOUT_ID) FROM SEAT_LAYOUT WHERE VENUE_ID = ?",
+                    new Object[] { venueId });
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
         } finally {
             jdbc.close();
         }
         return -1;
     }
 
-    private long insertTestSector(long layoutId, String sectorName, long gradeId, long perfId) throws Exception {
+    private long insertTestSector(long layoutId, String sectorName, long seatGradeId, long perfId) throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
             String sql = "INSERT INTO SECTOR (SECTOR_ID, SEAT_LAYOUT_ID, SECTOR_NAME, GRADE_ID, PERFORMANCE_ID) "
-                       + "VALUES (SEQ_SECTOR.NEXTVAL, ?, ?, ?, ?)";
-            jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorName, gradeId, perfId });
+                    + "VALUES (SEQ_SECTOR.NEXTVAL, ?, ?, ?, ?)";
+            jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorName, seatGradeId, perfId });
             jdbc.executeUpdate();
             jdbc.commit();
 
-            jdbc.setSqlAndParameters("SELECT MAX(SECTOR_ID) FROM SECTOR WHERE SEAT_LAYOUT_ID = ?", new Object[] { layoutId });
+            jdbc.setSqlAndParameters("SELECT MAX(SECTOR_ID) FROM SECTOR WHERE SEAT_LAYOUT_ID = ?",
+                    new Object[] { layoutId });
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
         } finally {
             jdbc.close();
         }
         return -1;
     }
 
-    private long insertTestSeat(long layoutId, long sectorId, String status) throws Exception {
+    private long insertTestSeat(long layoutId, long sectorId, String rowNum, String status) throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
             String sql = "INSERT INTO SEAT (SEAT_ID, SEAT_LAYOUT_ID, SECTOR_ID, ROW_NUM, COLUMN_NUM, SEAT_NUMBER, SEAT_STATUS) "
-                       + "VALUES (SEQ_SEAT.NEXTVAL, ?, ?, 1, 1, 'TEST-1', ?)";
-            jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorId, status });
+                    + "VALUES (SEQ_SEAT.NEXTVAL, ?, ?, ?, 1, 'TEST-1', ?)";
+            jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorId, rowNum, status });
             jdbc.executeUpdate();
             jdbc.commit();
 
-            jdbc.setSqlAndParameters("SELECT MAX(SEAT_ID) FROM SEAT WHERE SEAT_LAYOUT_ID = ?", new Object[] { layoutId });
+            jdbc.setSqlAndParameters("SELECT MAX(SEAT_ID) FROM SEAT WHERE SEAT_LAYOUT_ID = ?",
+                    new Object[] { layoutId });
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
         } finally {
             jdbc.close();
         }
         return -1;
     }
 
-    private long insertTestBooking(long memberId, long performanceId, String status) throws Exception {
+    private long insertTestBooking(long bookingId, long memberId, long performanceId, String status, long paymentId)
+            throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
-            String sql = "INSERT INTO BOOKING (BOOKING_ID, MEMBER_ID, PERFORMANCE_ID, BOOKING_STATUS, CREATED_AT) "
-                       + "VALUES (SEQ_BOOKING.NEXTVAL, ?, ?, ?, SYSDATE)";
-            jdbc.setSqlAndParameters(sql, new Object[] { memberId, performanceId, status });
+            String sql = "INSERT INTO BOOKING (BOOKING_ID, MEMBER_ID, PERFORMANCE_ID, BOOKING_STATUS, CREATED_AT, PAYMENT_ID) "
+                    + "VALUES (?, ?, ?, ?, SYSDATE, ?)";
+            jdbc.setSqlAndParameters(sql, new Object[] { bookingId, memberId, performanceId, status, paymentId });
             jdbc.executeUpdate();
             jdbc.commit();
-
-            jdbc.setSqlAndParameters("SELECT MAX(BOOKING_ID) FROM BOOKING", null);
-            ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            return bookingId;
         } finally {
             jdbc.close();
         }
-        return -1;
     }
 
     private long findLatestBookingSeatId() throws Exception {
@@ -223,7 +258,36 @@ public class BookingSeatDAOTest {
         try {
             jdbc.setSqlAndParameters("SELECT MAX(BOOKING_SEAT_ID) FROM BOOKING_SEAT", null);
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            if (rs.next())
+                return rs.getLong(1);
+        } finally {
+            jdbc.close();
+        }
+        return -1;
+    }
+
+    private long[] findAnyGradeAndPerformance() throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            jdbc.setSqlAndParameters("SELECT GRADE_ID, PERFORMANCE_ID FROM SEAT_GRADE WHERE ROWNUM = 1", null);
+            ResultSet rs = jdbc.executeQuery();
+            if (rs.next())
+                return new long[] { rs.getLong(1), rs.getLong(2) };
+        } finally {
+            jdbc.close();
+        }
+        return null;
+    }
+
+    private long findAnyId(String table, String idColumn) throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            jdbc.setSqlAndParameters("SELECT MIN(" + idColumn + ") FROM " + table, null);
+            ResultSet rs = jdbc.executeQuery();
+            if (rs.next()) {
+                long id = rs.getLong(1);
+                return rs.wasNull() ? -1 : id;
+            }
         } finally {
             jdbc.close();
         }
