@@ -10,7 +10,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * BookingSeatDAO 테스트 클래스 공용 DB 오염 및 데이터 부재(무결성 제약조건)를 방지하기 위해 Venue부터 순서대로 직접
+ * BookingSeatDAO 테스트 클래스
+ * 공용 DB 오염 및 데이터 부재(무결성 제약조건)를 방지하기 위해 Venue부터 순서대로 직접
  * 생성하고 테스트 종료 후 안전하게 삭제합니다.
  */
 public class BookingSeatDAOTest {
@@ -24,7 +25,7 @@ public class BookingSeatDAOTest {
     private long testSeatId = 0;
     private long testBookingId = 0;
     private long testBookingSeatId = 0;
-    private long existingGradeId = 0;
+    private long existingSeatGradeId = 0;
     private long existingPerformanceId = 0;
     private long existingMemberId = 0;
     private long testPaymentId = 0;
@@ -35,58 +36,45 @@ public class BookingSeatDAOTest {
                 getClass().getClassLoader().getResource("db.properties") != null);
         bookingSeatDao = new BookingSeatDAO();
 
-        // 0. SEAT_GRADE의 같은 행에서 GRADE_ID, PERFORMANCE_ID를 함께 조회 (FK 충족)
+        // 0. MEMBER 및 SEAT_GRADE의 같은 행에서 GRADE_ID, PERFORMANCE_ID 조회 (FK 충족)
         existingMemberId = findAnyId("MEMBER", "MEMBER_ID");
         assumeTrue("MEMBER 데이터가 필요합니다.", existingMemberId > 0);
 
         long[] gp = findAnyGradeAndPerformance();
         assumeTrue("SEAT_GRADE 데이터가 필요합니다.", gp != null);
-        existingGradeId = gp[0];
+        existingSeatGradeId = gp[0];
         existingPerformanceId = gp[1];
+
+        // BOOKING <-> PAYMENT 순환 FK(NOT NULL, NOT DEFERRABLE, IMMEDIATE)로 인해
+        // 신규 동시 INSERT가 불가하므로 기존 BOOKING + PAYMENT 행이 있는지 먼저 확인
+        long[] existingBp = findExistingBookingAndPayment();
+        assumeTrue("테스트용 BOOKING과 PAYMENT가 연결된 기존 데이터가 필요합니다.", existingBp != null);
+        testBookingId = existingBp[0];
+        testPaymentId = existingBp[1];
 
         testVenueId = insertTestVenue("테스트공연장_BS", 100);
         testSeatLayoutId = insertTestSeatLayout(testVenueId, "테스트레이아웃_BS");
-        
+
         // 구역: 조회한 GRADE_ID + PERFORMANCE_ID 쌍 사용
-        testSectorId = insertTestSector(testSeatLayoutId, "테스트구역_BS", existingGradeId, existingPerformanceId);
+        testSectorId = insertTestSector(testSeatLayoutId, "테스트구역_BS", existingSeatGradeId, existingPerformanceId);
 
-        testSeatId = insertTestSeat(testSeatLayoutId, testSectorId, "A");
-
-        // 예매: 같은 PERFORMANCE_ID 사용
-        testBookingId = insertTestBooking(existingMemberId, existingPerformanceId, "W");
-        testPaymentId = insertTestPayment(testBookingId);
-        linkPaymentToBooking(testBookingId, testPaymentId);
+        // ROW_NUM은 VARCHAR2(10) 컬럼에 맞춰 10자 이내 문자열('A')로 입력
+        testSeatId = insertTestSeat(testSeatLayoutId, testSectorId, "A", "A");
     }
 
     @After
     public void tearDown() throws Exception {
-        if (testSeatLayoutId == 0 && testSectorId == 0 && testSeatId == 0 && testBookingId == 0
-                && testBookingSeatId == 0 && testVenueId == 0 && testPaymentId == 0) {
+        if (testSeatLayoutId == 0 && testSectorId == 0 && testSeatId == 0 && testBookingSeatId == 0
+                && testVenueId == 0) {
             return;
         }
 
         JDBCUtil jdbcUtil = new JDBCUtil();
         try {
-            // 외래키 제약조건 역순으로 안전하게 삭제 (BookingSeat -> Booking -> Seat -> Sector -> SeatLayout
-            // -> Venue)
+            // 외래키 제약조건 역순으로 안전하게 삭제 (공용 BOOKING/PAYMENT는 유지)
             if (testBookingSeatId > 0) {
                 jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING_SEAT WHERE BOOKING_SEAT_ID = ?",
                         new Object[] { testBookingSeatId });
-                jdbcUtil.executeUpdate();
-            }
-            if (testBookingId > 0) {
-                jdbcUtil.setSqlAndParameters("UPDATE BOOKING SET PAYMENT_ID = NULL WHERE BOOKING_ID = ?",
-                        new Object[] { testBookingId });
-                jdbcUtil.executeUpdate();
-            }
-            if (testPaymentId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM PAYMENT WHERE PAYMENT_ID = ?",
-                        new Object[] { testPaymentId });
-                jdbcUtil.executeUpdate();
-            }
-            if (testBookingId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING WHERE BOOKING_ID = ?",
-                        new Object[] { testBookingId });
                 jdbcUtil.executeUpdate();
             }
             if (testSeatId > 0) {
@@ -152,8 +140,25 @@ public class BookingSeatDAOTest {
         int result = bookingSeatDao.restoreCancelledAndExpiredSeats();
         assertTrue("만료 및 취소 좌석 복원 쿼리가 정상 실행되어야 합니다.", result >= 0);
     }
-    
+
     // --- 테스트 데이터 세팅용 헬퍼 메서드들 ---
+
+    private long[] findExistingBookingAndPayment() throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            String sql = "SELECT B.BOOKING_ID, P.PAYMENT_ID "
+                    + "FROM BOOKING B JOIN PAYMENT P ON B.BOOKING_ID = P.BOOKING_ID "
+                    + "WHERE ROWNUM = 1";
+            jdbc.setSqlAndParameters(sql, null);
+            ResultSet rs = jdbc.executeQuery();
+            if (rs.next()) {
+                return new long[] { rs.getLong(1), rs.getLong(2) };
+            }
+        } finally {
+            jdbc.close();
+        }
+        return null;
+    }
 
     private long insertTestVenue(String name, int capacity) throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
@@ -193,12 +198,12 @@ public class BookingSeatDAOTest {
         return -1;
     }
 
-    private long insertTestSector(long layoutId, String sectorName, long gradeId, long perfId) throws Exception {
+    private long insertTestSector(long layoutId, String sectorName, long seatGradeId, long perfId) throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
             String sql = "INSERT INTO SECTOR (SECTOR_ID, SEAT_LAYOUT_ID, SECTOR_NAME, GRADE_ID, PERFORMANCE_ID) "
                     + "VALUES (SEQ_SECTOR.NEXTVAL, ?, ?, ?, ?)";
-            jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorName, gradeId, perfId });
+            jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorName, seatGradeId, perfId });
             jdbc.executeUpdate();
             jdbc.commit();
 
@@ -213,12 +218,12 @@ public class BookingSeatDAOTest {
         return -1;
     }
 
-    private long insertTestSeat(long layoutId, long sectorId, String status) throws Exception {
+    private long insertTestSeat(long layoutId, long sectorId, String rowNum, String status) throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
             String sql = "INSERT INTO SEAT (SEAT_ID, SEAT_LAYOUT_ID, SECTOR_ID, ROW_NUM, COLUMN_NUM, SEAT_NUMBER, SEAT_STATUS) "
-                    + "VALUES (SEQ_SEAT.NEXTVAL, ?, ?, 'A', 1, 'TEST-1', ?)";
-            jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorId, status });
+                    + "VALUES (SEQ_SEAT.NEXTVAL, ?, ?, ?, 1, 'TEST-1', ?)";
+            jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorId, rowNum, status });
             jdbc.executeUpdate();
             jdbc.commit();
 
@@ -233,23 +238,19 @@ public class BookingSeatDAOTest {
         return -1;
     }
 
-    private long insertTestBooking(long memberId, long performanceId, String status) throws Exception {
+    private long insertTestBooking(long bookingId, long memberId, long performanceId, String status, long paymentId)
+            throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
-            String sql = "INSERT INTO BOOKING (BOOKING_ID, MEMBER_ID, PERFORMANCE_ID, BOOKING_STATUS, CREATED_AT) "
-                    + "VALUES (SEQ_BOOKING.NEXTVAL, ?, ?, ?, SYSDATE)";
-            jdbc.setSqlAndParameters(sql, new Object[] { memberId, performanceId, status });
+            String sql = "INSERT INTO BOOKING (BOOKING_ID, MEMBER_ID, PERFORMANCE_ID, BOOKING_STATUS, CREATED_AT, PAYMENT_ID) "
+                    + "VALUES (?, ?, ?, ?, SYSDATE, ?)";
+            jdbc.setSqlAndParameters(sql, new Object[] { bookingId, memberId, performanceId, status, paymentId });
             jdbc.executeUpdate();
             jdbc.commit();
-
-            jdbc.setSqlAndParameters("SELECT MAX(BOOKING_ID) FROM BOOKING", null);
-            ResultSet rs = jdbc.executeQuery();
-            if (rs.next())
-                return rs.getLong(1);
+            return bookingId;
         } finally {
             jdbc.close();
         }
-        return -1;
     }
 
     private long findLatestBookingSeatId() throws Exception {
@@ -292,38 +293,4 @@ public class BookingSeatDAOTest {
         }
         return -1;
     }
-    
-    private long insertTestPayment(long bookingId) throws Exception {
-        JDBCUtil jdbc = new JDBCUtil();
-        try {
-            jdbc.setSqlAndParameters("SELECT SEQ_PAYMENT.NEXTVAL FROM DUAL", null);
-            ResultSet rs = jdbc.executeQuery();
-            long paymentId = -1;
-            if (rs.next())
-                paymentId = rs.getLong(1);
-
-            jdbc.setSqlAndParameters(
-                    "INSERT INTO PAYMENT (PAYMENT_ID, PAYMENT_AMOUNT, PAYMENT_METHOD, PAYMENT_STATUS, "
-                    + "PAID_AT, TRANSACTION_ID, BOOKING_ID) VALUES (?, ?, ?, ?, SYSDATE, ?, ?)",
-                    new Object[] { paymentId, 50000, "CARD", "P", "TEST-TX-" + paymentId, bookingId });
-            jdbc.executeUpdate();
-            jdbc.commit();
-            return paymentId;
-        } finally {
-            jdbc.close();
-        }
-    }
-
-    private void linkPaymentToBooking(long bookingId, long paymentId) throws Exception {
-        JDBCUtil jdbc = new JDBCUtil();
-        try {
-            jdbc.setSqlAndParameters("UPDATE BOOKING SET PAYMENT_ID = ? WHERE BOOKING_ID = ?",
-                    new Object[] { paymentId, bookingId });
-            jdbc.executeUpdate();
-            jdbc.commit();
-        } finally {
-            jdbc.close();
-        }
-    }
-
 }
