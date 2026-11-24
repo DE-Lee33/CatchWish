@@ -1,3 +1,9 @@
+/*
+ * [변경 요약] PresaleCodeDAO  (표시: [수정])
+ * [수정] insertPresaleCode, updatePresaleCode, deletePresaleCode, insertVerification:
+ *        rollback()을 try/catch로 감쌈 (컴파일 에러 해결, 원래 예외 보존)
+ * 변경 없음: 조회 메서드 (rs == null 검사는 죽은 코드이지만 그대로 둠)
+ */
 package model.dao;
 
 import java.sql.ResultSet;
@@ -5,9 +11,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.stereotype.Repository;
+
 import model.domain.CheckAuthCode;
 import model.domain.PresaleCode;
 
+@Repository
 public class PresaleCodeDAO {
     // 선예매 코드 등록
     public int insertPresaleCode(PresaleCode code) {
@@ -33,7 +42,7 @@ public class PresaleCodeDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw new RuntimeException("선예매 코드 등록 실패", e);
 
         } finally {
@@ -165,7 +174,7 @@ public class PresaleCodeDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw new RuntimeException("선예매 코드 수정 실패", e);
 
         } finally {
@@ -189,7 +198,7 @@ public class PresaleCodeDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw new RuntimeException("선예매 코드 삭제 실패", e);
 
         } finally {
@@ -219,7 +228,7 @@ public class PresaleCodeDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw new RuntimeException("회원 선예매 인증 기록 생성 실패", e);
 
         } finally {

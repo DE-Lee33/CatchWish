@@ -1,3 +1,4 @@
+
 package model.dao;
 
 import java.sql.ResultSet;
@@ -6,9 +7,12 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.stereotype.Repository;
+
 import model.domain.Wishlist;
 import model.dto.WishlistResponseDTO;
 
+@Repository
 public class WishlistDAO {
 
     // 1. 위시리스트 등록
@@ -32,7 +36,7 @@ public class WishlistDAO {
             return result;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw ex;
 
         } finally {
@@ -43,7 +47,7 @@ public class WishlistDAO {
 
     // 2. 회원별 위시리스트 조회
     public List<WishlistResponseDTO> selectWishlistByMemberId(Long memberId)
-            throws SQLException {
+            throws Exception {
 
         JDBCUtil jdbcUtil = new JDBCUtil();
         List<WishlistResponseDTO> wishlistList = new ArrayList<>();
@@ -143,7 +147,7 @@ public class WishlistDAO {
             return result;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw ex;
 
         } finally {
@@ -173,7 +177,7 @@ public class WishlistDAO {
             return result;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw ex;
 
         } finally {
