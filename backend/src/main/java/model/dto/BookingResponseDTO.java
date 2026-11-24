@@ -3,12 +3,14 @@ package model.dto;
 
 import java.sql.Timestamp;
 
+import model.domain.enums.BookingStatus;
+
 public class BookingResponseDTO {
 
     private Long bookingId;
     private Long performanceId;
     private String performanceName;
-    private String bookingStatus;
+    private BookingStatus bookingStatus;
     private Timestamp createdAt;
 
     public BookingResponseDTO() {
@@ -16,7 +18,7 @@ public class BookingResponseDTO {
 
     public BookingResponseDTO(Long bookingId, Long performanceId,
                               String performanceName,
-                              String bookingStatus,
+                              BookingStatus bookingStatus,
                               Timestamp createdAt) {
         this.bookingId = bookingId;
         this.performanceId = performanceId;
@@ -37,7 +39,7 @@ public class BookingResponseDTO {
         return performanceName;
     }
 
-    public String getBookingStatus() {
+    public BookingStatus getBookingStatus() {
         return bookingStatus;
     }
 
@@ -57,7 +59,7 @@ public class BookingResponseDTO {
         this.performanceName = performanceName;
     }
 
-    public void setBookingStatus(String bookingStatus) {
+    public void setBookingStatus(BookingStatus bookingStatus) {
         this.bookingStatus = bookingStatus;
     }
 

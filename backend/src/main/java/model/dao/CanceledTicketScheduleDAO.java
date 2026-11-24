@@ -1,6 +1,7 @@
 package model.dao;
 
 import model.domain.CanceledTicketSchedule;
+import model.domain.enums.ScheduleStatus;
 
 public class CanceledTicketScheduleDAO {
     // 취소표 재오픈 일정 등록 (M27)
@@ -12,10 +13,11 @@ public class CanceledTicketScheduleDAO {
                 + "(CANCELED_TICKET_SCHEDULE_ID, OPEN_AT, "
                 + "SCHEDULE_STATUS, CREATED_AT, PERFORMANCE_ID) "
                 + "VALUES (SEQ_CANCELED_TICKET_SCHEDULE.NEXTVAL, "
-                + "?, 'P', SYSDATE, ?)";
+                + "?, ?, SYSDATE, ?)";
 
         Object[] params = {
                 schedule.getOpenAt(),
+                ScheduleStatus.PLANNED.getCode(),
                 schedule.getPerformanceId()
         };
 

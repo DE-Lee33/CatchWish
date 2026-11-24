@@ -2,16 +2,13 @@ package model.domain;
 
 import java.util.Date;
 
+import model.domain.enums.ApprovalStatus;
+
 /**
  * 공연 (PERFORMANCE 테이블)
  * 공연 기본 정보 + 관리자 심사 상태를 함께 가진다.
  */
 public class Performance {
-	/** 심사 상태 코드 (docs/STATUS_CODES.md) */
-	public static final String STATUS_PENDING = "P";   // 심사중
-	public static final String STATUS_APPROVED = "A";  // 승인
-	public static final String STATUS_REJECTED = "R";  // 반려
-
 	private long performanceId;
 	private long registrantId;        // 공연 등록자 (MEMBER_ID)
 	private Long managerId;           // 심사한 관리자 (심사 전에는 null)
@@ -28,7 +25,7 @@ public class Performance {
 	private int maxTicketsPerMember;  // 1인 최대 예매 매수
 	private String venueName;
 	private String venueAddress;
-	private String approvalStatus;
+	private ApprovalStatus approvalStatus;
 	private String rejectReason;
 	private Date reviewedAt;
 	private Date createdAt;
@@ -37,7 +34,7 @@ public class Performance {
 	}
 
 	public boolean isApproved() {
-		return STATUS_APPROVED.equals(approvalStatus);
+		return approvalStatus == ApprovalStatus.APPROVED;
 	}
 
 	public long getPerformanceId() {
@@ -168,11 +165,11 @@ public class Performance {
 		this.venueAddress = venueAddress;
 	}
 
-	public String getApprovalStatus() {
+	public ApprovalStatus getApprovalStatus() {
 		return approvalStatus;
 	}
 
-	public void setApprovalStatus(String approvalStatus) {
+	public void setApprovalStatus(ApprovalStatus approvalStatus) {
 		this.approvalStatus = approvalStatus;
 	}
 

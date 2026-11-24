@@ -9,6 +9,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import model.domain.enums.PaymentStatus;
 import model.dto.PaymentRequestDTO;
 
 /**
@@ -95,7 +96,7 @@ public class PaymentDAOTest {
         paymentDao.insertPayment(request);
 
         // 결제 실패 처리 테스트 (상태 'F')
-        int result = paymentDao.updatePaymentStatus(testBookingId, "F");
+        int result = paymentDao.updatePaymentStatus(testBookingId, PaymentStatus.FAILED);
         assertEquals("결제 상태가 실패('F')로 변경되어야 합니다.", 1, result);
     }
 

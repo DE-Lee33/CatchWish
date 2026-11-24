@@ -18,6 +18,7 @@ import org.junit.Test;
 import model.domain.Performance;
 import model.domain.SeatGrade;
 import model.domain.VenueRentalProof;
+import model.domain.enums.ApprovalStatus;
 import model.dto.MyPerformanceSummary;
 
 /**
@@ -71,7 +72,7 @@ public class PerformanceDAOTest {
 		Performance found = performanceDAO.findById(performanceId);
 		assertNotNull(found);
 		assertEquals(uniqueName, found.getPerformanceName());
-		assertEquals(Performance.STATUS_PENDING, found.getApprovalStatus());
+		assertEquals(ApprovalStatus.PENDING, found.getApprovalStatus());
 		assertNull(found.getManagerId());
 		assertNull(found.getVenueTemplateId());
 		assertNotNull(found.getShowAt());
@@ -97,7 +98,7 @@ public class PerformanceDAOTest {
 		assertTrue(foundProof.covers(found.getShowAt()));
 
 		// 심사 대기 목록에 있어야 함
-		assertTrue(containsId(performanceDAO.findListByStatus(Performance.STATUS_PENDING), performanceId));
+		assertTrue(containsId(performanceDAO.findListByStatus(ApprovalStatus.PENDING), performanceId));
 
 		// 승인 전에는 목록·검색에 안 보임
 		assertFalse(containsId(performanceDAO.search(uniqueName, null, 1, 10), performanceId));
@@ -108,7 +109,7 @@ public class PerformanceDAOTest {
 		assertEquals(0, performanceDAO.reject(performanceId, adminId, "사유"));
 
 		Performance approved = performanceDAO.findById(performanceId);
-		assertEquals(Performance.STATUS_APPROVED, approved.getApprovalStatus());
+		assertEquals(ApprovalStatus.APPROVED, approved.getApprovalStatus());
 		assertEquals(Long.valueOf(adminId), approved.getManagerId());
 		assertNotNull(approved.getReviewedAt());
 
@@ -127,7 +128,7 @@ public class PerformanceDAOTest {
 
 		assertEquals(1, performanceDAO.reject(performanceId, adminId, "대관 기간이 공연 일시와 다릅니다"));
 		Performance rejected = performanceDAO.findById(performanceId);
-		assertEquals(Performance.STATUS_REJECTED, rejected.getApprovalStatus());
+		assertEquals(ApprovalStatus.REJECTED, rejected.getApprovalStatus());
 		assertEquals("대관 기간이 공연 일시와 다릅니다", rejected.getRejectReason());
 	}
 
@@ -146,7 +147,7 @@ public class PerformanceDAOTest {
 		// 공연 정보 수정
 		p.setPerformanceName(uniqueName + "_수정");
 		p.setRunningTime(150);
-		p.setApprovalStatus(Performance.STATUS_PENDING);
+		p.setApprovalStatus(ApprovalStatus.PENDING);
 		assertEquals(1, performanceDAO.update(p));
 		Performance updated = performanceDAO.findById(performanceId);
 		assertEquals(uniqueName + "_수정", updated.getPerformanceName());

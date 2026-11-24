@@ -2,10 +2,12 @@ package model.domain;
 
 import java.sql.Timestamp;
 
+import model.domain.enums.SendStatus;
+
 public class Notification {
     private Long notificationId;
     private String notificationType;
-    private String sendStatus;
+    private SendStatus sendStatus;
     private Timestamp createdAt;
     private Timestamp sendAt;
     private Long memberId;
@@ -16,7 +18,7 @@ public class Notification {
     public Notification() {}
 
     public Notification(Long notificationId, String notificationType,
-                        String sendStatus, Timestamp createdAt,
+                        SendStatus sendStatus, Timestamp createdAt,
                         Timestamp sendAt, Long memberId,
                         String isRead, Long wishlistId,
                         Long canceledTicketScheduleId) {
@@ -42,10 +44,10 @@ public class Notification {
     public void setNotificationType(String notificationType) {
         this.notificationType = notificationType;
     }
-    public String getSendStatus() {
+    public SendStatus getSendStatus() {
         return sendStatus;
     }
-    public void setSendStatus(String sendStatus) {
+    public void setSendStatus(SendStatus sendStatus) {
         this.sendStatus = sendStatus;
     }
     public Timestamp getCreatedAt() {

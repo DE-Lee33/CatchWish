@@ -2,6 +2,7 @@ package model.dao;
 
 import java.sql.SQLException;
 
+import model.domain.enums.PaymentStatus;
 import model.dto.PaymentRequestDTO;
 
 public class PaymentDAO {
@@ -13,12 +14,13 @@ public class PaymentDAO {
     
     public int insertPayment(PaymentRequestDTO request) throws SQLException {
         String sql = "INSERT INTO payment(payment_id, booking_id, payment_amount, payment_method, payment_status, paid_at, transaction_id) "
-                   + "VALUES (SEQ_PAYMENT.NEXTVAL, ?, ?, ?, 'P', SYSDATE, ?)";
+                   + "VALUES (SEQ_PAYMENT.NEXTVAL, ?, ?, ?, ?, SYSDATE, ?)";
         
         Object[] params = new Object[] {
             request.getBookingId(),
             request.getPaymentAmount(),
             request.getPaymentMethod(),
+            PaymentStatus.PENDING.getCode(),
             request.getTransactionId()
         };
         
@@ -27,18 +29,18 @@ public class PaymentDAO {
     
     public int updatePaymentSuccess(long bookingId, String transactionId) throws SQLException {
         String sql = "UPDATE payment "
-                   + "SET payment_status = 'C', paid_at = SYSDATE, transaction_id = ? "
+                   + "SET payment_status = ?, paid_at = SYSDATE, transaction_id = ? "
                    + "WHERE booking_id = ?";
         
-        return executeChange(sql, new Object[] { transactionId, bookingId });
+        return executeChange(sql, new Object[] { PaymentStatus.COMPLETED.getCode(), transactionId, bookingId });
     }
     
-    public int updatePaymentStatus(long bookingId, String paymentStatus) throws SQLException {
+    public int updatePaymentStatus(long bookingId, PaymentStatus paymentStatus) throws SQLException {
         String sql = "UPDATE payment "
                    + "SET payment_status = ? "
                    + "WHERE booking_id = ?";
         
-        return executeChange(sql, new Object[] { paymentStatus, bookingId });
+        return executeChange(sql, new Object[] { paymentStatus.getCode(), bookingId });
     }
     
     private int executeChange(String sql, Object[] params) throws SQLException {

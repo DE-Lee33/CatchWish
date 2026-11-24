@@ -7,6 +7,7 @@ import java.util.List;
 
 import model.domain.Notification;
 import model.domain.Wishlist;
+import model.domain.enums.SendStatus;
 
 public class NotificationDAO {
     
@@ -18,10 +19,11 @@ public class NotificationDAO {
                 + "(NOTIFICATION_ID, NOTIFICATION_TYPE, SEND_STATUS, "
                 + "CREATED_AT, MEMBER_ID, IS_READ, WISHLIST_ID, "
                 + "CANCELED_TICKET_SCHEDULE_ID) "
-                + "VALUES (SEQ_NOTIFICATION.NEXTVAL, ?, 'N', SYSDATE, ?, 'N', ?, ?)";
+                + "VALUES (SEQ_NOTIFICATION.NEXTVAL, ?, ?, SYSDATE, ?, 'N', ?, ?)";
 
         Object[] params = {
                 notification.getNotificationType(),
+                SendStatus.NOT_SENT.getCode(),
                 notification.getMemberId(),
                 notification.getWishlistId(),
                 notification.getCanceledTicketScheduleId()
@@ -94,11 +96,11 @@ public class NotificationDAO {
         List<Notification> notifications = new ArrayList<>();
 
         String sql = "SELECT * FROM NOTIFICATION "
-                + "WHERE SEND_STATUS = 'N' "
+                + "WHERE SEND_STATUS = ? "
                 + "ORDER BY CREATED_AT";
 
         try {
-            jdbcUtil.setSqlAndParameters(sql, new Object[]{});
+            jdbcUtil.setSqlAndParameters(sql, new Object[]{ SendStatus.NOT_SENT.getCode() });
 
             ResultSet rs = jdbcUtil.executeQuery();
             if (rs == null) {
@@ -121,19 +123,20 @@ public class NotificationDAO {
 
     // 알림 발송 상태 변경
     public int updateSendStatus(
-            Long notificationId, String sendStatus) {
+            Long notificationId, SendStatus sendStatus) {
 
         JDBCUtil jdbcUtil = new JDBCUtil();
 
         String sql = "UPDATE NOTIFICATION "
                 + "SET SEND_STATUS = ?, "
-                + "SEND_AT = CASE WHEN ? = 'Y' "
+                + "SEND_AT = CASE WHEN ? = ? "
                 + "THEN SYSDATE ELSE SEND_AT END "
                 + "WHERE NOTIFICATION_ID = ? "
-                + "AND SEND_STATUS = 'N'";
+                + "AND SEND_STATUS = ?";
 
         Object[] params = {
-                sendStatus, sendStatus, notificationId
+                sendStatus.getCode(), sendStatus.getCode(), SendStatus.SENT.getCode(),
+                notificationId, SendStatus.NOT_SENT.getCode()
         };
 
         try {
@@ -218,7 +221,7 @@ public class NotificationDAO {
 
         notification.setNotificationId(rs.getLong("NOTIFICATION_ID"));
         notification.setNotificationType(rs.getString("NOTIFICATION_TYPE"));
-        notification.setSendStatus(rs.getString("SEND_STATUS"));
+        notification.setSendStatus(SendStatus.fromCode(rs.getString("SEND_STATUS")));
         notification.setCreatedAt(rs.getTimestamp("CREATED_AT"));
         notification.setSendAt(rs.getTimestamp("SEND_AT"));
         notification.setMemberId(rs.getLong("MEMBER_ID"));

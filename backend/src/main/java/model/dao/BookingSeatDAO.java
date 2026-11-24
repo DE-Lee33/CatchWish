@@ -1,6 +1,8 @@
 package model.dao;
 
 import java.sql.SQLException;
+import model.domain.enums.BookingStatus;
+import model.domain.enums.SeatStatus;
 
 public class BookingSeatDAO {
     private JDBCUtil jdbcUtil = null;
@@ -11,26 +13,27 @@ public class BookingSeatDAO {
     
     public int restoreCancelledAndExpiredSeats() throws SQLException {
         String sql = "UPDATE seat "
-                   + "SET seat_status = 'A' "
+                   + "SET seat_status = ? "
                    + "WHERE seat_id IN ( "
                    + "    SELECT bs.seat_id "
                    + "    FROM booking_seat bs JOIN booking b ON bs.booking_id = b.booking_id "
-                   + "    WHERE b.booking_status = 'X' OR (b.booking_status = 'W' AND b.created_at < SYSDATE - (10 / (24 * 60))) "
+                   + "    WHERE b.booking_status = ? OR (b.booking_status = ? AND b.created_at < SYSDATE - (10 / (24 * 60))) "
                    + ")";
         
-        return executeChange(sql, null);
+        return executeChange(sql, new Object[] { SeatStatus.AVAILABLE.getCode(), BookingStatus.CANCELED.getCode(),
+                BookingStatus.WAITING_PAYMENT.getCode() });
     }
     
     public int releaseSeatsByBookingId(long bookingId) throws SQLException {
         String sql = "UPDATE seat "
-                   + "SET seat_status = 'A' "
+                   + "SET seat_status = ? "
                    + "WHERE seat_id IN ( "
                    + "    SELECT seat_id "
                    + "    FROM booking_seat "
                    + "    WHERE booking_id = ? "
-                   + ") AND seat_status = 'H'";
+                   + ") AND seat_status = ?";
         
-        return executeChange(sql, new Object[] { bookingId });
+        return executeChange(sql, new Object[] { SeatStatus.AVAILABLE.getCode(), bookingId, SeatStatus.HELD.getCode() });
     }
     
     public int insertBookingSeat(long bookingId, long seatId, double price) throws SQLException {
@@ -42,10 +45,10 @@ public class BookingSeatDAO {
     
     public int updateSeatToHeld(long seatId) throws SQLException {
         String sql = "UPDATE seat "
-                   + "SET seat_status = 'H' "
-                   + "WHERE seat_id = ? AND seat_status = 'A'";
+                   + "SET seat_status = ? "
+                   + "WHERE seat_id = ? AND seat_status = ?";
         
-        return executeChange(sql, new Object[] { seatId });
+        return executeChange(sql, new Object[] { SeatStatus.HELD.getCode(), seatId, SeatStatus.AVAILABLE.getCode() });
     }
     
     private int executeChange(String sql, Object[] params) throws SQLException {

@@ -1,11 +1,13 @@
 
 package model.dto;
 
+import model.domain.enums.QueueStatus;
+
 public class QueueStatusDTO {
 
     private Long queueId;
     private Integer position;
-    private String status;
+    private QueueStatus status;
     private Integer waitingPosition;
     private Integer totalWaiting;
 
@@ -14,7 +16,7 @@ public class QueueStatusDTO {
     }
 
     // 전체 생성자
-    public QueueStatusDTO(Long queueId, Integer position, String status,
+    public QueueStatusDTO(Long queueId, Integer position, QueueStatus status,
                           Integer waitingPosition, Integer totalWaiting) {
         this.queueId = queueId;
         this.position = position;
@@ -39,11 +41,11 @@ public class QueueStatusDTO {
         this.position = position;
     }
 
-    public String getStatus() {
+    public QueueStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(QueueStatus status) {
         this.status = status;
     }
 

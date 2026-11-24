@@ -10,6 +10,8 @@ import java.util.List;
 import model.domain.Performance;
 import model.domain.SeatGrade;
 import model.domain.VenueRentalProof;
+import model.domain.enums.ApprovalStatus;
+import model.domain.enums.SeatStatus;
 import model.dto.MyPerformanceSummary;
 
 /**
@@ -23,11 +25,11 @@ import model.dto.MyPerformanceSummary;
  *      지금은 팀 규칙대로 메서드마다 commit한다.
  */
 public class PerformanceDAO {
-	private static final String STATUS_APPROVED = Performance.STATUS_APPROVED;
-	private static final String STATUS_PENDING = Performance.STATUS_PENDING;
-	private static final String STATUS_REJECTED = Performance.STATUS_REJECTED;
+	private static final String STATUS_APPROVED = ApprovalStatus.APPROVED.getCode();
+	private static final String STATUS_PENDING = ApprovalStatus.PENDING.getCode();
+	private static final String STATUS_REJECTED = ApprovalStatus.REJECTED.getCode();
 	/** 좌석 상태 코드 A: 예매 가능 */
-	private static final String SEAT_AVAILABLE = "A";
+	private static final String SEAT_AVAILABLE = SeatStatus.AVAILABLE.getCode();
 
 	private JDBCUtil jdbcUtil = null;
 
@@ -165,7 +167,7 @@ public class PerformanceDAO {
 			jdbcUtil.commit();
 
 			p.setPerformanceId(performanceId);
-			p.setApprovalStatus(STATUS_PENDING);
+			p.setApprovalStatus(ApprovalStatus.PENDING);
 			return performanceId;
 		} catch (Exception ex) {
 			rollbackQuietly();
@@ -233,7 +235,7 @@ public class PerformanceDAO {
 				p.getVenueTemplateId(), p.getPerformanceName(), p.getGenre(), p.getCastInfo(),
 				p.getDescription(), p.getPosterUrl(), p.getRunningTime(), toTimestamp(p.getShowAt()),
 				toTimestamp(p.getBookingOpenAt()), toTimestamp(p.getCancelDeadlineAt()),
-				p.getMaxTicketsPerMember(), p.getVenueName(), p.getVenueAddress(), p.getApprovalStatus(),
+				p.getMaxTicketsPerMember(), p.getVenueName(), p.getVenueAddress(), p.getApprovalStatus().getCode(),
 				p.getPerformanceId() }, "공연 수정 실패");
 	}
 
@@ -276,9 +278,9 @@ public class PerformanceDAO {
 	// ===================== M30 관리자 심사 =====================
 
 	/** M30-1 심사 상태별 공연 목록 (심사 대기 목록은 "P", 먼저 신청한 순) */
-	public List<Performance> findListByStatus(String approvalStatus) throws SQLException {
+	public List<Performance> findListByStatus(ApprovalStatus approvalStatus) throws SQLException {
 		jdbcUtil.setSqlAndParameters("SELECT * FROM PERFORMANCE WHERE APPROVAL_STATUS = ? ORDER BY CREATED_AT",
-				new Object[] { approvalStatus });
+				new Object[] { approvalStatus.getCode() });
 		try {
 			ResultSet rs = executeQueryOrThrow();
 			List<Performance> list = new ArrayList<>();
@@ -399,7 +401,7 @@ public class PerformanceDAO {
 		p.setMaxTicketsPerMember(rs.getInt("MAX_TICKETS_PER_MEMBER"));
 		p.setVenueName(rs.getString("VENUE_NAME"));
 		p.setVenueAddress(rs.getString("VENUE_ADDRESS"));
-		p.setApprovalStatus(rs.getString("APPROVAL_STATUS"));
+		p.setApprovalStatus(ApprovalStatus.fromCode(rs.getString("APPROVAL_STATUS")));
 		p.setRejectReason(rs.getString("REJECT_REASON"));
 		p.setReviewedAt(rs.getTimestamp("REVIEWED_AT"));
 		p.setCreatedAt(rs.getTimestamp("CREATED_AT"));

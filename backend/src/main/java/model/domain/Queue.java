@@ -3,11 +3,13 @@ package model.domain;
 
 import java.sql.Timestamp;
 
+import model.domain.enums.QueueStatus;
+
 public class Queue {
 
     private Long queueId;
     private Integer position;
-    private String status;
+    private QueueStatus status;
     private String authCode;
     private String isVerified;
     private Timestamp createdAt;
@@ -19,14 +21,14 @@ public class Queue {
     }
 
     // 대기열 기본 정보 생성자 (QueueDAO 조회용)
-    public Queue(Long queueId, Integer position, String status) {
+    public Queue(Long queueId, Integer position, QueueStatus status) {
         this.queueId = queueId;
         this.position = position;
         this.status = status;
     }
 
     // 전체 생성자
-    public Queue(Long queueId, Integer position, String status,
+    public Queue(Long queueId, Integer position, QueueStatus status,
                  String authCode, String isVerified, Timestamp createdAt,
                  Long memberId, Long performanceId) {
         this.queueId = queueId;
@@ -55,11 +57,11 @@ public class Queue {
         this.position = position;
     }
 
-    public String getStatus() {
+    public QueueStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(QueueStatus status) {
         this.status = status;
     }
 

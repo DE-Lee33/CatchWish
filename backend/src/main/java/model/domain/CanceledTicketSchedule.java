@@ -2,10 +2,12 @@ package model.domain;
 
 import java.sql.Timestamp;
 
+import model.domain.enums.ScheduleStatus;
+
 public class CanceledTicketSchedule {
     private Long canceledTicketScheduleId;
     private Timestamp openAt;
-    private String scheduleStatus;
+    private ScheduleStatus scheduleStatus;
     private Timestamp createdAt;
     private Long performanceId;
     
@@ -13,7 +15,7 @@ public class CanceledTicketSchedule {
 
     public CanceledTicketSchedule(Long canceledTicketScheduleId,
                                   Timestamp openAt,
-                                  String scheduleStatus,
+                                  ScheduleStatus scheduleStatus,
                                   Timestamp createdAt,
                                   Long performanceId) {
         this.canceledTicketScheduleId = canceledTicketScheduleId;
@@ -34,10 +36,10 @@ public class CanceledTicketSchedule {
     public void setOpenAt(Timestamp openAt) {
         this.openAt = openAt;
     }
-    public String getScheduleStatus() {
+    public ScheduleStatus getScheduleStatus() {
         return scheduleStatus;
     }
-    public void setScheduleStatus(String scheduleStatus) {
+    public void setScheduleStatus(ScheduleStatus scheduleStatus) {
         this.scheduleStatus = scheduleStatus;
     }
     public Timestamp getCreatedAt() {

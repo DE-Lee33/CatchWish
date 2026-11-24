@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import model.domain.Seat;
+import model.domain.enums.SeatStatus;
 import model.dto.SectorAvailabilityDTO;
 
 public class SeatDAO {
@@ -46,7 +47,7 @@ public class SeatDAO {
                 seat.setRowNum(rs.getString("row_num"));
                 seat.setColumnNum(rs.getLong("column_num"));
                 seat.setSeatNumber(rs.getString("seat_number"));
-                seat.setSeatStatus(rs.getString("seat_status"));
+                seat.setSeatStatus(SeatStatus.fromCode(rs.getString("seat_status")));
 
                 seatList.add(seat);
             }
@@ -70,7 +71,7 @@ public class SeatDAO {
 
         String sql = "SELECT s.sector_id, s.sector_name, "
                    + "COUNT(st.seat_id) AS total_seats, "
-                   + "COUNT(CASE WHEN st.seat_status = 'A' "
+                   + "COUNT(CASE WHEN st.seat_status = ? "
                    + "THEN 1 END) AS available_seats "
                    + "FROM sector s "
                    + "LEFT JOIN seat st ON s.sector_id = st.sector_id "
@@ -83,7 +84,7 @@ public class SeatDAO {
         List<SectorAvailabilityDTO> sectorList = new ArrayList<>();
 
         try {
-            jdbcUtil.setSqlAndParameters(sql, new Object[] { seatLayoutId });
+            jdbcUtil.setSqlAndParameters(sql, new Object[] { SeatStatus.AVAILABLE.getCode(), seatLayoutId });
 
             ResultSet rs = jdbcUtil.executeQuery();
 

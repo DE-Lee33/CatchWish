@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import model.dto.SeatLayoutResponseDTO;
+import model.domain.enums.SeatStatus;
 
 public class SeatLayoutDAO {
     private JDBCUtil jdbcUtil = null;
@@ -51,9 +52,9 @@ public class SeatLayoutDAO {
     
     public int insertSeat(long seatLayoutId, long sectorId, int rowNum, int columnNum, String seatNumber) throws SQLException {
         String sql = "INSERT INTO seat(seat_id, seat_layout_id, sector_id, row_num, column_num, seat_number, seat_status) "
-                   + "VALUES (SEQ_SEAT.NEXTVAL, ?, ?, ?, ?, ?, 'A')";
+                   + "VALUES (SEQ_SEAT.NEXTVAL, ?, ?, ?, ?, ?, ?)";
         
-        return executeChange(sql, new Object[] { seatLayoutId, sectorId, rowNum, columnNum, seatNumber });
+        return executeChange(sql, new Object[] { seatLayoutId, sectorId, rowNum, columnNum, seatNumber, SeatStatus.AVAILABLE.getCode() });
     }
     
     public int updateSeat(long sectorId, int rowNum, int columnNum, String seatNumber, long seatId) throws SQLException {
@@ -69,17 +70,17 @@ public class SeatLayoutDAO {
     }
     
     public int updateSeatStatusToBooked(long seatId) throws SQLException {
-        String sql = "UPDATE seat SET seat_status = 'B' WHERE seat_id = ? AND seat_status = 'H'";
+        String sql = "UPDATE seat SET seat_status = ? WHERE seat_id = ? AND seat_status = ?";
         
-        return executeChange(sql, new Object[] { seatId });
+        return executeChange(sql, new Object[] { SeatStatus.BOOKED.getCode(), seatId, SeatStatus.HELD.getCode() });
     }
     
     public int updateSeatStatusToAvailable(long bookingId) throws SQLException {
-        String sql = "UPDATE seat SET seat_status = 'A' "
+        String sql = "UPDATE seat SET seat_status = ? "
                    + "WHERE seat_id IN (SELECT seat_id FROM booking_seat WHERE booking_id = ?) "
-                   + "AND seat_status IN ('H', 'C')";
+                   + "AND seat_status IN (?, ?)";
         
-        return executeChange(sql, new Object[] { bookingId });
+        return executeChange(sql, new Object[] { SeatStatus.AVAILABLE.getCode(), bookingId, SeatStatus.HELD.getCode(), SeatStatus.CANCEL_PENDING.getCode() });
     }
     
     private int executeChange(String sql, Object[] params) throws SQLException {

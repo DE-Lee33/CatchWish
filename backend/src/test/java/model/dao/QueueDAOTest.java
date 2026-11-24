@@ -9,6 +9,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import model.domain.Queue;
+import model.domain.enums.QueueStatus;
 import model.dto.QueueStatusDTO;
 
 public class QueueDAOTest {
@@ -39,8 +40,7 @@ public class QueueDAOTest {
 
     @Test
     public void testUpdateQueueStatus() throws Exception {
-        int result = queueDAO.updateQueueStatus(
-                nonExistingId, "W");
+        int result = queueDAO.updateQueueStatus(nonExistingId, QueueStatus.WAITING);
 
         assertEquals(0, result);
     }

@@ -6,6 +6,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import model.domain.enums.BookingStatus;
+import model.domain.enums.SeatStatus;
 import model.dto.BookingResponse;
 import model.dto.BookingResponseDTO;
 import model.dto.BookingSeatDTO;
@@ -26,7 +28,7 @@ public class BookingDAO {
                 "VALUES (SEQ_BOOKING.NEXTVAL, ?, SYSDATE, ?, NULL, ?)";
 
             jdbcUtil.setSqlAndParameters(sql, new Object[] {
-                "W", memberId, performanceId
+                BookingStatus.WAITING_PAYMENT.getCode(), memberId, performanceId
             });
 
             jdbcUtil.executeUpdate();
@@ -87,7 +89,7 @@ public class BookingDAO {
                     rs.getLong("BOOKING_ID"),
                     rs.getLong("PERFORMANCE_ID"),
                     rs.getString("PERFORMANCE_NAME"),
-                    rs.getString("BOOKING_STATUS"),
+                    BookingStatus.fromCode(rs.getString("BOOKING_STATUS")),
                     rs.getTimestamp("CREATED_AT")
                 );
 
@@ -162,7 +164,7 @@ public class BookingDAO {
                     booking.setMemberId(rs.getLong("MEMBER_ID"));
                     booking.setPerformanceId(rs.getLong("PERFORMANCE_ID"));
                     booking.setPerformanceName(rs.getString("PERFORMANCE_NAME"));
-                    booking.setBookingStatus(rs.getString("BOOKING_STATUS"));
+                    booking.setBookingStatus(BookingStatus.fromCode(rs.getString("BOOKING_STATUS")));
                     booking.setCreatedAt(rs.getTimestamp("CREATED_AT"));
                     booking.setRefundAccount(rs.getString("REFUND_ACCOUNT"));
                 }
@@ -213,7 +215,7 @@ public class BookingDAO {
 
             jdbcUtil.setSqlAndParameters(
                 sql,
-                new Object[] { "C", bookingId, memberId, "W" }
+                new Object[] { BookingStatus.CONFIRMED.getCode(), bookingId, memberId, BookingStatus.WAITING_PAYMENT.getCode() }
             );
 
             int result = jdbcUtil.executeUpdate();
@@ -251,7 +253,7 @@ public class BookingDAO {
             jdbcUtil.setSqlAndParameters(
                 sql,
                 new Object[] {
-                    "X", refundAccount, bookingId, memberId, "C"
+                    BookingStatus.CANCELED.getCode(), refundAccount, bookingId, memberId, BookingStatus.CONFIRMED.getCode() 
                 }
             );
 
@@ -295,7 +297,7 @@ public class BookingDAO {
             jdbcUtil.setSqlAndParameters(
                 sql,
                 new Object[] {
-                    "C", bookingId, memberId, "X", "B"
+                    SeatStatus.CANCEL_PENDING.getCode(), bookingId, memberId, BookingStatus.CANCELED.getCode(), SeatStatus.BOOKED.getCode() 
                 }
             );
 
@@ -328,33 +330,34 @@ public class BookingDAO {
             // 1. 만료 대상 예매의 좌석 상태 H → A 변경
             String seatSql =
                 "UPDATE SEAT S " +
-                "SET SEAT_STATUS = 'A' " +
-                "WHERE S.SEAT_STATUS = 'H' " +
+                "SET SEAT_STATUS = ? " +
+                "WHERE S.SEAT_STATUS = ? " +
                 "AND EXISTS ( " +
                 "    SELECT 1 " +
                 "    FROM BOOKING_SEAT BS " +
                 "    JOIN BOOKING B ON BS.BOOKING_ID = B.BOOKING_ID " +
                 "    WHERE BS.SEAT_ID = S.SEAT_ID " +
-                "    AND B.BOOKING_STATUS = 'W' " +
+                "    AND B.BOOKING_STATUS = ? " +
                 "    AND B.CREATED_AT < ? " +
                 ")";
 
             jdbcUtil.setSqlAndParameters(
                 seatSql,
-                new Object[] { cutoffTime }
+                new Object[] { SeatStatus.AVAILABLE.getCode(), SeatStatus.HELD.getCode(),
+                        BookingStatus.WAITING_PAYMENT.getCode(), cutoffTime }
             );
             jdbcUtil.executeUpdate();
 
             // 2. 만료 대상 예매 상태 변경
             String bookingSql =
                 "UPDATE BOOKING " +
-                "SET BOOKING_STATUS = 'X' " +
-                "WHERE BOOKING_STATUS = 'W' " +
+                "SET BOOKING_STATUS = ? " +
+                "WHERE BOOKING_STATUS = ? " +
                 "AND CREATED_AT < ?";
 
             jdbcUtil.setSqlAndParameters(
                 bookingSql,
-                new Object[] { cutoffTime }
+                new Object[] { BookingStatus.CANCELED.getCode(), BookingStatus.WAITING_PAYMENT.getCode(), cutoffTime }
             );
 
             int result = jdbcUtil.executeUpdate();
