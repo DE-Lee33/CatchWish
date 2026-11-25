@@ -1,18 +1,20 @@
 package model.domain;
 
+import model.domain.enums.SeatStatus;
+
 public class Seat {
     private long seatId;
     private long seatLayoutId;
     private String rowNum;      
     private long columnNum;      
     private String seatNumber;   
-    private String seatStatus;  
+    private SeatStatus seatStatus;  
     private long sectorId;
 
     public Seat() {
     }
 
-    public Seat(long seatId, long seatLayoutId, String rowNum, long columnNum, String seatNumber, String seatStatus, long sectorId) {
+    public Seat(long seatId, long seatLayoutId, String rowNum, long columnNum, String seatNumber, SeatStatus seatStatus, long sectorId) {
         super();
         this.seatId = seatId;
         this.seatLayoutId = seatLayoutId;
@@ -63,11 +65,11 @@ public class Seat {
         this.seatNumber = seatNumber;
     }
 
-    public String getSeatStatus() {
+    public SeatStatus getSeatStatus() {
         return seatStatus;
     }
 
-    public void setSeatStatus(String seatStatus) {
+    public void setSeatStatus(SeatStatus seatStatus) {
         this.seatStatus = seatStatus;
     }
 

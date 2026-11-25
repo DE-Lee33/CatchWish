@@ -1,23 +1,14 @@
-/*
- * [변경 요약] BookingDAO  (표시: [수정] [추가] [삭제])
- * [추가] import java.sql.SQLException
- * [수정] throws Exception -> throws SQLException (expireBookings 포함)
- * [추가] 트랜잭션 참여용 오버로드 4개: insertBooking, updateBookingStatusToConfirmed,
- *        updateBookingStatusToCancelled, updateSeatStatusToCancelWaiting
- * [수정] 위 4개의 단독용 메서드는 참여용을 호출하고 commit
- * [수정] expireBookings: rollback -> rollbackQuietly, throw ex -> toSQLException
- * [추가] private 헬퍼 rollbackQuietly, toSQLException
- */
 package model.dao;
 
 import java.sql.ResultSet;
-import java.sql.SQLException;   // [추가]
+import java.sql.SQLException;   
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import model.domain.enums.BookingStatus;
+import model.domain.enums.SeatStatus;
 import org.springframework.stereotype.Repository;
-
 import model.dto.BookingResponse;
 import model.dto.BookingResponseDTO;
 import model.dto.BookingSeatDTO;
@@ -30,16 +21,16 @@ public class BookingDAO {
      * 결제 전 상태(W)로 예매 정보를 생성하고 BOOKING_ID 반환
      */
 
-    /** 단독용: 한 번에 commit */   // [수정]
-    public Long insertBooking(Long memberId, Long performanceId) throws SQLException {   // [수정]
+    /** 단독용: 한 번에 commit */   
+    public Long insertBooking(Long memberId, Long performanceId) throws SQLException { 
         JDBCUtil jdbcUtil = new JDBCUtil();
         try {
-            Long bookingId = insertBooking(jdbcUtil, memberId, performanceId);   // [수정]
+            Long bookingId = insertBooking(jdbcUtil, memberId, performanceId);  
             jdbcUtil.commit();
             return bookingId;
         } catch (Exception ex) {
-            rollbackQuietly(jdbcUtil);   // [수정]
-            throw toSQLException("예매 생성 실패", ex);   // [수정]
+            rollbackQuietly(jdbcUtil);   
+            throw toSQLException("예매 생성 실패", ex);  
         } finally {
             jdbcUtil.close();
         }
@@ -48,7 +39,7 @@ public class BookingDAO {
     /**
      * 트랜잭션 참여용: commit/rollback/close는 호출한 쪽(Manager)이 한다.
      * 결제 전 상태(W)로 예매를 만들고 BOOKING_ID 반환
-     */   // [추가] 아래 메서드 전체
+     */   
     public Long insertBooking(JDBCUtil jdbcUtil, Long memberId, Long performanceId) throws Exception {
             String sql =
                 "INSERT INTO BOOKING " +
@@ -56,7 +47,7 @@ public class BookingDAO {
                 "VALUES (SEQ_BOOKING.NEXTVAL, ?, SYSDATE, ?, NULL, ?)";
 
             jdbcUtil.setSqlAndParameters(sql, new Object[] {
-                "W", memberId, performanceId
+                BookingStatus.WAITING_PAYMENT.getCode(), memberId, performanceId
             });
 
             jdbcUtil.executeUpdate();
@@ -79,7 +70,7 @@ public class BookingDAO {
      * M16 - 회원의 예매 내역 조회
      */
     public List<BookingResponseDTO> selectBookingsByMemberId(Long memberId)
-            throws Exception {   // [수정]
+            throws Exception {  
 
         JDBCUtil jdbcUtil = new JDBCUtil();
         List<BookingResponseDTO> bookingList = new ArrayList<>();
@@ -106,7 +97,7 @@ public class BookingDAO {
                     rs.getLong("BOOKING_ID"),
                     rs.getLong("PERFORMANCE_ID"),
                     rs.getString("PERFORMANCE_NAME"),
-                    rs.getString("BOOKING_STATUS"),
+                    BookingStatus.fromCode(rs.getString("BOOKING_STATUS")),
                     rs.getTimestamp("CREATED_AT")
                 );
 
@@ -114,7 +105,6 @@ public class BookingDAO {
             }
 
             return bookingList;
-        // [삭제] catch (Exception ex) { throw ex; }  (아무 동작 없는 catch)
         } finally {
             jdbcUtil.close();
         }
@@ -125,7 +115,7 @@ public class BookingDAO {
      * 예매 정보와 예매 좌석 목록을 함께 조회
      */
     public BookingResponse selectBookingDetail(Long bookingId, Long memberId)
-            throws Exception {   // [수정]
+            throws Exception {   
 
         JDBCUtil jdbcUtil = new JDBCUtil();
         BookingResponse booking = null;
@@ -179,7 +169,7 @@ public class BookingDAO {
                     booking.setMemberId(rs.getLong("MEMBER_ID"));
                     booking.setPerformanceId(rs.getLong("PERFORMANCE_ID"));
                     booking.setPerformanceName(rs.getString("PERFORMANCE_NAME"));
-                    booking.setBookingStatus(rs.getString("BOOKING_STATUS"));
+                    booking.setBookingStatus(BookingStatus.fromCode(rs.getString("BOOKING_STATUS")));
                     booking.setCreatedAt(rs.getTimestamp("CREATED_AT"));
                     booking.setRefundAccount(rs.getString("REFUND_ACCOUNT"));
                 }
@@ -203,7 +193,6 @@ public class BookingDAO {
             }
 
             return booking;
-        // [삭제] catch (Exception ex) { throw ex; }  (아무 동작 없는 catch)
         } finally {
             jdbcUtil.close();
         }
@@ -214,23 +203,23 @@ public class BookingDAO {
      * 결제가 완료된 예매의 상태를 W → C로 변경
      */
 
-     /** 단독용 */   // [수정]
+     /** 단독용 */   
     public int updateBookingStatusToConfirmed(Long bookingId, Long memberId)
-            throws SQLException {   // [수정]
+            throws SQLException {  
         JDBCUtil jdbcUtil = new JDBCUtil();
         try {
             int result = updateBookingStatusToConfirmed(jdbcUtil, bookingId, memberId);   // [수정]
             jdbcUtil.commit();
             return result;
         } catch (Exception ex) {
-            rollbackQuietly(jdbcUtil);   // [수정]
-            throw toSQLException("예매 확정 실패", ex);   // [수정]
+            rollbackQuietly(jdbcUtil); 
+            throw toSQLException("예매 확정 실패", ex);  
         } finally {
             jdbcUtil.close();
         }
     }
 
-   /** 트랜잭션 참여용. 0이 반환되면 이미 처리됐거나 W 상태가 아님 → 호출한 쪽에서 롤백 */   // [추가] 아래 메서드 전체
+   /** 트랜잭션 참여용. 0이 반환되면 이미 처리됐거나 W 상태가 아님 → 호출한 쪽에서 롤백 */   
     public int updateBookingStatusToConfirmed(JDBCUtil jdbcUtil, Long bookingId, Long memberId) throws Exception {
             String sql =
                 "UPDATE BOOKING " +
@@ -241,7 +230,7 @@ public class BookingDAO {
 
             jdbcUtil.setSqlAndParameters(
                 sql,
-                new Object[] { "C", bookingId, memberId, "W" }
+                new Object[] { BookingStatus.CONFIRMED.getCode(), bookingId, memberId, BookingStatus.WAITING_PAYMENT.getCode() }
             );
 
             return jdbcUtil.executeUpdate();
@@ -252,23 +241,23 @@ public class BookingDAO {
      * 확정된 예매의 상태를 C → X로 변경하고 환불 계좌 저장
      */
 
-    /** 단독용 */   // [수정]
+    /** 단독용 */  
     public int updateBookingStatusToCancelled(Long bookingId, Long memberId, String refundAccount)
-            throws SQLException {   // [수정]
+            throws SQLException {  
         JDBCUtil jdbcUtil = new JDBCUtil();
         try {
             int result = updateBookingStatusToCancelled(jdbcUtil, bookingId, memberId, refundAccount);   // [수정]
             jdbcUtil.commit();
             return result;
         } catch (Exception ex) {
-            rollbackQuietly(jdbcUtil);   // [수정]
-            throw toSQLException("예매 취소 실패", ex);   // [수정]
+            rollbackQuietly(jdbcUtil);  
+            throw toSQLException("예매 취소 실패", ex);  
         } finally {
             jdbcUtil.close();
         }
     }
 
- /** 트랜잭션 참여용. 0이면 C 상태가 아님 → 호출한 쪽에서 롤백 */   // [추가] 아래 메서드 전체
+ /** 트랜잭션 참여용. 0이면 C 상태가 아님 → 호출한 쪽에서 롤백 */  
     public int updateBookingStatusToCancelled(JDBCUtil jdbcUtil, Long bookingId, Long memberId, String refundAccount) throws Exception {
             String sql =
                 "UPDATE BOOKING " +
@@ -281,7 +270,7 @@ public class BookingDAO {
             jdbcUtil.setSqlAndParameters(
                 sql,
                 new Object[] {
-                    "X", refundAccount, bookingId, memberId, "C"
+                    BookingStatus.CANCELED.getCode(), refundAccount, bookingId, memberId, BookingStatus.CONFIRMED.getCode() 
                 }
             );
 
@@ -293,17 +282,17 @@ public class BookingDAO {
      * 예매 취소된 좌석의 상태를 B → C로 변경
      */
 
-   /** 단독용 */   // [수정]
+   /** 단독용 */
     public int updateSeatStatusToCancelWaiting(Long bookingId, Long memberId)
-            throws SQLException {   // [수정]
+            throws SQLException {
         JDBCUtil jdbcUtil = new JDBCUtil();
         try {
             int result = updateSeatStatusToCancelWaiting(jdbcUtil, bookingId, memberId);   // [수정]
             jdbcUtil.commit();
             return result;
         } catch (Exception ex) {
-            rollbackQuietly(jdbcUtil);   // [수정]
-            throw toSQLException("취소 좌석 상태 변경 실패", ex);   // [수정]
+            rollbackQuietly(jdbcUtil);  
+            throw toSQLException("취소 좌석 상태 변경 실패", ex);  
         } finally {
             jdbcUtil.close();
         }
@@ -313,7 +302,7 @@ public class BookingDAO {
      * 트랜잭션 참여용.
      * 주의: 서브쿼리가 BOOKING_STATUS = 'X'를 요구하므로
      *       같은 트랜잭션에서 updateBookingStatusToCancelled를 먼저 호출해야 한다.
-     */   // [추가] 아래 메서드 전체
+     */   
     public int updateSeatStatusToCancelWaiting(JDBCUtil jdbcUtil, Long bookingId, Long memberId) throws Exception  {
             String sql =
                 "UPDATE SEAT " +
@@ -332,7 +321,7 @@ public class BookingDAO {
             jdbcUtil.setSqlAndParameters(
                 sql,
                 new Object[] {
-                    "C", bookingId, memberId, "X", "B"
+                    SeatStatus.CANCEL_PENDING.getCode(), bookingId, memberId, BookingStatus.CANCELED.getCode(), SeatStatus.BOOKED.getCode() 
                 }
             );
 
@@ -343,7 +332,7 @@ public class BookingDAO {
      * M22 - 홀드 만료 처리
      * 생성 후 10분이 지난 결제 대기 예매를 만료 처리
      */
-    public int expireBookings() throws SQLException {   // [수정] throws Exception -> SQLException
+    public int expireBookings() throws SQLException {   
         JDBCUtil jdbcUtil = new JDBCUtil();
 
         // 기준 시간: 현재 시각에서 10분 전
@@ -355,33 +344,34 @@ public class BookingDAO {
             // 1. 만료 대상 예매의 좌석 상태 H → A 변경
             String seatSql =
                 "UPDATE SEAT S " +
-                "SET SEAT_STATUS = 'A' " +
-                "WHERE S.SEAT_STATUS = 'H' " +
+                "SET SEAT_STATUS = ? " +
+                "WHERE S.SEAT_STATUS = ? " +
                 "AND EXISTS ( " +
                 "    SELECT 1 " +
                 "    FROM BOOKING_SEAT BS " +
                 "    JOIN BOOKING B ON BS.BOOKING_ID = B.BOOKING_ID " +
                 "    WHERE BS.SEAT_ID = S.SEAT_ID " +
-                "    AND B.BOOKING_STATUS = 'W' " +
+                "    AND B.BOOKING_STATUS = ? " +
                 "    AND B.CREATED_AT < ? " +
                 ")";
 
             jdbcUtil.setSqlAndParameters(
                 seatSql,
-                new Object[] { cutoffTime }
+                new Object[] { SeatStatus.AVAILABLE.getCode(), SeatStatus.HELD.getCode(),
+                        BookingStatus.WAITING_PAYMENT.getCode(), cutoffTime }
             );
             jdbcUtil.executeUpdate();
 
             // 2. 만료 대상 예매 상태 변경
             String bookingSql =
                 "UPDATE BOOKING " +
-                "SET BOOKING_STATUS = 'X' " +
-                "WHERE BOOKING_STATUS = 'W' " +
+                "SET BOOKING_STATUS = ? " +
+                "WHERE BOOKING_STATUS = ? " +
                 "AND CREATED_AT < ?";
 
             jdbcUtil.setSqlAndParameters(
                 bookingSql,
-                new Object[] { cutoffTime }
+                new Object[] { BookingStatus.CANCELED.getCode(), BookingStatus.WAITING_PAYMENT.getCode(), cutoffTime }
             );
 
             int result = jdbcUtil.executeUpdate();
@@ -392,19 +382,18 @@ public class BookingDAO {
             return result;
 
         } catch (Exception ex) {
-            rollbackQuietly(jdbcUtil);   // [수정] jdbcUtil.rollback() -> rollbackQuietly(jdbcUtil)
-            throw toSQLException("홀드 만료 처리 실패", ex);   // [수정] throw ex -> toSQLException
-
+            rollbackQuietly(jdbcUtil);  
+            throw toSQLException("홀드 만료 처리 실패", ex);   
         } finally {
             jdbcUtil.close();
         }
     }
-
-// =====================================================================
+  
+    // =====================================================================
     // 내부 공통 처리
     // =====================================================================
 
-    /** 연결을 얻기 전에 실패한 경우에도 원래 예외가 가려지지 않게 한다 */   // [추가] 헬퍼 2개
+    /** 연결을 얻기 전에 실패한 경우에도 원래 예외가 가려지지 않게 한다 */  
     private void rollbackQuietly(JDBCUtil jdbcUtil) {
         try {
             jdbcUtil.rollback();

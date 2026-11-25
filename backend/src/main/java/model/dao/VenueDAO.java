@@ -1,10 +1,3 @@
-/*
- * [변경 요약] VenueDAO  (표시: [수정] [추가] [삭제])
- * [삭제] private JDBCUtil jdbcUtil 필드, 생성자 (요청 간 Connection 공유 방지)
- * [추가] selectVenueList, findOne: 메서드 안에서 JDBCUtil 지역 생성
- * [수정] executeQueryOrThrow() -> jdbcUtil.executeQuery()
- * [삭제] executeQueryOrThrow (JDBCUtil.executeQuery()가 예외를 던지므로 불필요)
- */
 package model.dao;
 
 import java.sql.ResultSet;
@@ -21,21 +14,15 @@ public class VenueDAO {
     private static final String SELECT_COLUMNS =
             "SELECT venue_id, venue_name, venue_address, venue_capacity FROM venue ";
     
-    // [삭제] private JDBCUtil jdbcUtil = null;
-    
-    // [삭제] public VenueDAO() {
-    // [삭제]     jdbcUtil = new JDBCUtil();
-    // [삭제] }
-    
     public List<VenueResponseDTO> selectVenueList() throws SQLException {
         String sql = SELECT_COLUMNS + "ORDER BY venue_name";
-        JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
+        JDBCUtil jdbcUtil = new JDBCUtil(); 
         jdbcUtil.setSqlAndParameters(sql, null);
         
         List<VenueResponseDTO> venueList = new ArrayList<>();
         
         try {
-            ResultSet rs = jdbcUtil.executeQuery();   // [수정] executeQueryOrThrow() -> executeQuery()
+            ResultSet rs = jdbcUtil.executeQuery();  
             
             while(rs.next()) {
                 venueList.add(mapVenue(rs));
@@ -58,11 +45,11 @@ public class VenueDAO {
     }
     
     private VenueResponseDTO findOne(String sql, Object[] params) throws SQLException {
-        JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
+        JDBCUtil jdbcUtil = new JDBCUtil();  
         jdbcUtil.setSqlAndParameters(sql, params);
         
         try {
-            ResultSet rs = jdbcUtil.executeQuery();   // [수정]
+            ResultSet rs = jdbcUtil.executeQuery(); 
             
             if(rs.next()) {
                 return mapVenue(rs);
@@ -88,14 +75,6 @@ public class VenueDAO {
     
         return venue;
     }
-    
-    // [삭제] private ResultSet executeQueryOrThrow() throws SQLException {
-    // [삭제]     ResultSet rs = jdbcUtil.executeQuery();
-    // [삭제]     if(rs == null) {
-    // [삭제]         throw new SQLException("쿼리 실행 실패: " + jdbcUtil.getSql());
-    // [삭제]     }
-    // [삭제]     return rs;
-    // [삭제] }
     
     private SQLException toSQLException(String message, Exception ex) {
         if(ex instanceof SQLException) {
