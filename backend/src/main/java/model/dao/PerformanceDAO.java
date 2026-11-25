@@ -31,7 +31,6 @@ public class PerformanceDAO {
     private static final String STATUS_APPROVED = ApprovalStatus.APPROVED.getCode();
     private static final String STATUS_PENDING = ApprovalStatus.PENDING.getCode();
     private static final String STATUS_REJECTED = ApprovalStatus.REJECTED.getCode();
-    /** 좌석 상태 코드 A: 예매 가능 */
     private static final String SEAT_AVAILABLE = SeatStatus.AVAILABLE.getCode();
 
     // ===================== M4·M5 목록·검색 (승인된 공연만) =====================
@@ -83,7 +82,7 @@ public class PerformanceDAO {
 
     /** M6·M10 공연 상세: 없으면 null (승인 여부 판단은 Manager에서) */
     public Performance findById(long performanceId) throws Exception {
-        JDBCUtil jdbcUtil = new JDBCUtil();  
+        JDBCUtil jdbcUtil = new JDBCUtil(); 
         jdbcUtil.setSqlAndParameters("SELECT * FROM PERFORMANCE WHERE PERFORMANCE_ID = ?",
                 new Object[] { performanceId });
         try {
@@ -102,7 +101,7 @@ public class PerformanceDAO {
                         + "WHERE PERFORMANCE_ID = ? ORDER BY PRICE DESC",
                 new Object[] { performanceId });
         try {
-            ResultSet rs = jdbcUtil.executeQuery();  
+            ResultSet rs = jdbcUtil.executeQuery(); 
             List<SeatGrade> list = new ArrayList<>();
             while (rs.next()) {
                 SeatGrade grade = new SeatGrade();
@@ -133,7 +132,7 @@ public class PerformanceDAO {
         JDBCUtil jdbcUtil = new JDBCUtil();  
         jdbcUtil.setSqlAndParameters(sql, new Object[] { SEAT_AVAILABLE, registrantId });
         try {
-            ResultSet rs = jdbcUtil.executeQuery();  
+            ResultSet rs = jdbcUtil.executeQuery(); 
             List<MyPerformanceSummary> list = new ArrayList<>();
             while (rs.next()) {
                 list.add(new MyPerformanceSummary(mapPerformance(rs),
@@ -308,12 +307,12 @@ public class PerformanceDAO {
     /** M30-1 심사 상태별 공연 목록 (심사 대기 목록은 "P", 먼저 신청한 순) */
 
     public List<Performance> findListByStatus(ApprovalStatus approvalStatus) throws Exception {
-        JDBCUtil jdbcUtil = new JDBCUtil();   
+        JDBCUtil jdbcUtil = new JDBCUtil(); 
 
         jdbcUtil.setSqlAndParameters("SELECT * FROM PERFORMANCE WHERE APPROVAL_STATUS = ? ORDER BY CREATED_AT",
                 new Object[] { approvalStatus.getCode() });
         try {
-            ResultSet rs = jdbcUtil.executeQuery();   
+            ResultSet rs = jdbcUtil.executeQuery();  
             List<Performance> list = new ArrayList<>();
             while (rs.next()) {
                 list.add(mapPerformance(rs));
@@ -326,7 +325,7 @@ public class PerformanceDAO {
 
     /** M30-1 심사 상세의 대관 증빙: 없으면 null */
     public VenueRentalProof findRentalProof(long performanceId) throws Exception {
-        JDBCUtil jdbcUtil = new JDBCUtil(); 
+        JDBCUtil jdbcUtil = new JDBCUtil();  
         jdbcUtil.setSqlAndParameters(
                 "SELECT PROOF_ID, PERFORMANCE_ID, FILE_PATH, ORIGINAL_FILE_NAME, RENTAL_START_AT, RENTAL_END_AT, SUBMITTED_AT "
                         + "FROM VENUE_RENTAL_PROOF WHERE PERFORMANCE_ID = ?",
@@ -402,7 +401,7 @@ public class PerformanceDAO {
         params.add(page * size);        // 이 페이지의 마지막 행 번호
         params.add((page - 1) * size);  // 이전 페이지까지의 행 수
 
-        JDBCUtil jdbcUtil = new JDBCUtil();   
+        JDBCUtil jdbcUtil = new JDBCUtil();  
         jdbcUtil.setSqlAndParameters(sql, params.toArray());
         try {
             ResultSet rs = jdbcUtil.executeQuery();  
@@ -453,7 +452,7 @@ public class PerformanceDAO {
     }
 
     private int queryCount(String sql, Object[] params) throws Exception {
-        JDBCUtil jdbcUtil = new JDBCUtil(); 
+        JDBCUtil jdbcUtil = new JDBCUtil();  
         jdbcUtil.setSqlAndParameters(sql, params);
         try {
             ResultSet rs = jdbcUtil.executeQuery();  
@@ -466,14 +465,14 @@ public class PerformanceDAO {
 
     /** INSERT·UPDATE·DELETE 공통: 성공하면 commit, 실패하면 rollback */
     private int executeChange(String sql, Object[] params, String failMessage) throws SQLException {
-        JDBCUtil jdbcUtil = new JDBCUtil();   
+        JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
         jdbcUtil.setSqlAndParameters(sql, params);
         try {
             int result = jdbcUtil.executeUpdate();
             jdbcUtil.commit();
             return result;
         } catch (Exception ex) {
-            rollbackQuietly(jdbcUtil);   
+            rollbackQuietly(jdbcUtil);  
             throw toSQLException(failMessage, ex);
         } finally {
             jdbcUtil.close();
@@ -481,9 +480,9 @@ public class PerformanceDAO {
     }
 
     /** 시퀀스 다음 값 조회 (close는 호출한 쪽에서) */
-    private long nextSequence(JDBCUtil jdbcUtil, String sequenceName) throws Exception {   
+    private long nextSequence(JDBCUtil jdbcUtil, String sequenceName) throws Exception { 
         jdbcUtil.setSqlAndParameters("SELECT " + sequenceName + ".NEXTVAL FROM DUAL", null);
-        ResultSet rs = jdbcUtil.executeQuery();   
+        ResultSet rs = jdbcUtil.executeQuery();  
         if (!rs.next()) {
             throw new SQLException(sequenceName + " 값을 가져오지 못했습니다.");
         }
@@ -491,7 +490,7 @@ public class PerformanceDAO {
     }
 
     /** 연결을 얻기 전에 실패한 경우에도 rollback에서 다른 예외가 나지 않게 막는다 */
-    private void rollbackQuietly(JDBCUtil jdbcUtil) {   
+    private void rollbackQuietly(JDBCUtil jdbcUtil) { 
         try {
             jdbcUtil.rollback();
         } catch (Exception ignore) {

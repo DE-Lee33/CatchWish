@@ -35,7 +35,7 @@ public class WishlistDAO {
             return result;
 
         } catch (Exception ex) {
-            try { jdbcUtil.rollback(); } catch (Exception ignore) { }   
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   
             throw ex;
 
         } finally {
@@ -146,7 +146,7 @@ public class WishlistDAO {
             return result;
 
         } catch (Exception ex) {
-            try { jdbcUtil.rollback(); } catch (Exception ignore) { }   
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { } 
             throw ex;
 
         } finally {
@@ -176,7 +176,7 @@ public class WishlistDAO {
             return result;
 
         } catch (Exception ex) {
-            try { jdbcUtil.rollback(); } catch (Exception ignore) { }   
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }  
             throw ex;
 
         } finally {

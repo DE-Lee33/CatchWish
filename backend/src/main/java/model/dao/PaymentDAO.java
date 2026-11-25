@@ -8,7 +8,6 @@ import model.dto.PaymentRequestDTO;
 
 @Repository
 public class PaymentDAO {
-    // 단독용: 참여용을 호출하고 commit
     public int insertPayment(PaymentRequestDTO request) throws SQLException {
         JDBCUtil jdbcUtil = new JDBCUtil();
         try {
@@ -97,8 +96,8 @@ public class PaymentDAO {
             jdbcUtil.close();
         }
     }
-    
-    private void rollbackQuietly(JDBCUtil jdbcUtil) {  
+
+    private void rollbackQuietly(JDBCUtil jdbcUtil) { 
         try {
             jdbcUtil.rollback();
         } 
