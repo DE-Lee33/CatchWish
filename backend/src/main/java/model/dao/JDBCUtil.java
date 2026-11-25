@@ -6,7 +6,7 @@ public class JDBCUtil {
 	private static ConnectionManager connMan = new ConnectionManager();  
 	private String sql = null; 				// 실행할 query
 	private Object[] parameters = null;; 	// PreparedStatement 의 매개변수 값을 저장하는 배열
-	private static Connection conn = null;
+	private Connection conn = null;
 	private PreparedStatement pstmt = null;
 	private CallableStatement cstmt = null;
 	private ResultSet rs = null;
@@ -85,18 +85,13 @@ public class JDBCUtil {
 	}
 
 	// JDBCUtil의 쿼리와 매개변수를 이용해  executeQuery를 수행하는 메소드
-	public ResultSet executeQuery() {
-		try {
-			pstmt = getPreparedStatement();
-			for (int i = 0; i < getParameterSize(); i++) {
-				pstmt.setObject(i + 1, getParameter(i));
-			}
-			rs = pstmt.executeQuery();
-			return rs;
-		} catch (Exception ex) {
-			ex.printStackTrace();
+	public ResultSet executeQuery() throws SQLException, Exception {
+		pstmt = getPreparedStatement();
+		for (int i = 0; i < getParameterSize(); i++) {
+			pstmt.setObject(i + 1, getParameter(i));
 		}
-		return null;
+		rs = pstmt.executeQuery();
+		return rs;
 	}
 
 	// JDBCUtil의 쿼리와 매개변수를 이용해 executeUpdate를 수행하는 메소드
@@ -169,20 +164,12 @@ public class JDBCUtil {
 		}
 	}
 
-	public void commit() {
-		try {
-			conn.commit();
-		} catch (SQLException ex) {
-			ex.printStackTrace();
-		}
+	public void commit() throws SQLException {
+		conn.commit();
 	}
 
-	public void rollback() {
-		try {
-			conn.rollback();
-		} catch (SQLException ex) {
-			ex.printStackTrace();
-		}
+	public void rollback() throws SQLException {
+		conn.rollback();
 	}
 
 	// DataSource 를 종료

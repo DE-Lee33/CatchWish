@@ -3,24 +3,21 @@ package model.dao;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.springframework.stereotype.Repository;
+
 import model.domain.Member;
 
 /**
  * 회원 DAO (MEMBER 테이블)
  * 담당 기능: M1 회원가입·아이디 중복확인, M2 로그인, M3-1 회원정보 조회, M3-2 회원정보 수정
  */
+@Repository
 public class MemberDAO {
 	private static final String SELECT_COLUMNS =
 			"SELECT MEMBER_ID, LOGIN_ID, PASSWORD_HASH, MEMBER_NAME, EMAIL, MEMBER_ROLE, CREATED_AT FROM MEMBER ";
 
-	private JDBCUtil jdbcUtil = null;
-
-	public MemberDAO() {
-		jdbcUtil = new JDBCUtil();
-	}
-
 	/** M1 아이디 중복확인: 이미 사용 중이면 true */
-	public boolean existsLoginId(String loginId) throws SQLException {
+	public boolean existsLoginId(String loginId) throws Exception {
 		String sql = "SELECT COUNT(*) FROM MEMBER WHERE LOGIN_ID = ?";
 		return queryCount(sql, new Object[] { loginId }) > 0;
 	}
@@ -29,7 +26,7 @@ public class MemberDAO {
 	 * M1, M3-2 이메일 중복확인: 이미 사용 중이면 true
 	 * @param excludeMemberId 정보 수정 시 본인 회원 번호 (회원가입 시에는 0)
 	 */
-	public boolean existsEmail(String email, long excludeMemberId) throws SQLException {
+	public boolean existsEmail(String email, long excludeMemberId) throws Exception {
 		String sql = "SELECT COUNT(*) FROM MEMBER WHERE EMAIL = ? AND MEMBER_ID <> ?";
 		return queryCount(sql, new Object[] { email, excludeMemberId }) > 0;
 	}
@@ -38,8 +35,9 @@ public class MemberDAO {
 	public long create(Member member) throws SQLException {
 		String sql = "INSERT INTO MEMBER (MEMBER_ID, LOGIN_ID, PASSWORD_HASH, MEMBER_NAME, EMAIL, MEMBER_ROLE, CREATED_AT) "
 				+ "VALUES (?, ?, ?, ?, ?, 'USER', SYSDATE)";
+		JDBCUtil jdbcUtil = new JDBCUtil();  
 		try {
-			long memberId = nextSequence("SEQ_MEMBER");
+			long memberId = nextSequence(jdbcUtil, "SEQ_MEMBER"); 
 			jdbcUtil.setSqlAndParameters(sql, new Object[] {
 					memberId, member.getLoginId(), member.getPasswordHash(),
 					member.getMemberName(), member.getEmail() });
@@ -50,7 +48,7 @@ public class MemberDAO {
 			member.setMemberRole(Member.ROLE_USER);
 			return memberId;
 		} catch (Exception ex) {
-			rollbackQuietly();
+			rollbackQuietly(jdbcUtil);   
 			throw toSQLException("회원 등록 실패", ex);
 		} finally {
 			jdbcUtil.close();
@@ -58,12 +56,12 @@ public class MemberDAO {
 	}
 
 	/** M2 로그인용 조회: 없으면 null (비밀번호 비교는 Manager에서) */
-	public Member findByLoginId(String loginId) throws SQLException {
+	public Member findByLoginId(String loginId) throws Exception {
 		return findOne(SELECT_COLUMNS + "WHERE LOGIN_ID = ?", new Object[] { loginId });
 	}
 
 	/** M3-1 회원정보 조회: 없으면 null */
-	public Member findById(long memberId) throws SQLException {
+	public Member findById(long memberId) throws Exception {
 		return findOne(SELECT_COLUMNS + "WHERE MEMBER_ID = ?", new Object[] { memberId });
 	}
 
@@ -82,10 +80,11 @@ public class MemberDAO {
 
 	// ===================== 내부 공통 처리 =====================
 
-	private Member findOne(String sql, Object[] params) throws SQLException {
-		jdbcUtil.setSqlAndParameters(sql, params);
+	private Member findOne(String sql, Object[] params) throws Exception {
+		JDBCUtil jdbcUtil = new JDBCUtil();  
 		try {
-			ResultSet rs = executeQueryOrThrow();
+			jdbcUtil.setSqlAndParameters(sql, params);   
+			ResultSet rs = jdbcUtil.executeQuery();   
 			if (rs.next()) {
 				return mapMember(rs);
 			}
@@ -107,10 +106,11 @@ public class MemberDAO {
 		return member;
 	}
 
-	private int queryCount(String sql, Object[] params) throws SQLException {
-		jdbcUtil.setSqlAndParameters(sql, params);
+	private int queryCount(String sql, Object[] params) throws Exception {
+		JDBCUtil jdbcUtil = new JDBCUtil();  
 		try {
-			ResultSet rs = executeQueryOrThrow();
+			jdbcUtil.setSqlAndParameters(sql, params);   
+			ResultSet rs = jdbcUtil.executeQuery();   
 			rs.next();
 			return rs.getInt(1);
 		} finally {
@@ -120,13 +120,14 @@ public class MemberDAO {
 
 	/** INSERT·UPDATE·DELETE 공통: 성공하면 commit, 실패하면 rollback */
 	private int executeChange(String sql, Object[] params) throws SQLException {
-		jdbcUtil.setSqlAndParameters(sql, params);
+		JDBCUtil jdbcUtil = new JDBCUtil();   
 		try {
+			jdbcUtil.setSqlAndParameters(sql, params);  
 			int result = jdbcUtil.executeUpdate();
 			jdbcUtil.commit();
 			return result;
 		} catch (Exception ex) {
-			rollbackQuietly();
+			rollbackQuietly(jdbcUtil);  
 			throw toSQLException("회원 정보 변경 실패", ex);
 		} finally {
 			jdbcUtil.close();
@@ -134,26 +135,17 @@ public class MemberDAO {
 	}
 
 	/** 시퀀스 다음 값 조회 (close는 호출한 쪽에서) */
-	private long nextSequence(String sequenceName) throws SQLException {
+	private long nextSequence(JDBCUtil jdbcUtil, String sequenceName) throws Exception {  
 		jdbcUtil.setSqlAndParameters("SELECT " + sequenceName + ".NEXTVAL FROM DUAL", null);
-		ResultSet rs = executeQueryOrThrow();
+		ResultSet rs = jdbcUtil.executeQuery();   // [수정]
 		if (!rs.next()) {
 			throw new SQLException(sequenceName + " 값을 가져오지 못했습니다.");
 		}
 		return rs.getLong(1);
 	}
 
-	/** JDBCUtil.executeQuery()는 실패하면 null을 반환하므로 예외로 바꿔서 알린다 */
-	private ResultSet executeQueryOrThrow() throws SQLException {
-		ResultSet rs = jdbcUtil.executeQuery();
-		if (rs == null) {
-			throw new SQLException("쿼리 실행 실패: " + jdbcUtil.getSql());
-		}
-		return rs;
-	}
-
 	/** 연결을 얻기 전에 실패한 경우에도 rollback에서 다른 예외가 나지 않게 막는다 */
-	private void rollbackQuietly() {
+	private void rollbackQuietly(JDBCUtil jdbcUtil) {  
 		try {
 			jdbcUtil.rollback();
 		} catch (Exception ignore) {

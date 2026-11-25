@@ -5,9 +5,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.stereotype.Repository;
+
 import model.domain.CheckAuthCode;
 import model.domain.PresaleCode;
 
+@Repository
 public class PresaleCodeDAO {
     // 선예매 코드 등록
     public int insertPresaleCode(PresaleCode code) {
@@ -33,7 +36,7 @@ public class PresaleCodeDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }  
             throw new RuntimeException("선예매 코드 등록 실패", e);
 
         } finally {
@@ -165,7 +168,7 @@ public class PresaleCodeDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw new RuntimeException("선예매 코드 수정 실패", e);
 
         } finally {
@@ -189,7 +192,7 @@ public class PresaleCodeDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw new RuntimeException("선예매 코드 삭제 실패", e);
 
         } finally {
@@ -219,7 +222,7 @@ public class PresaleCodeDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
             throw new RuntimeException("회원 선예매 인증 기록 생성 실패", e);
 
         } finally {

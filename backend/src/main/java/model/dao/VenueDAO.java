@@ -5,26 +5,24 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.stereotype.Repository;
+
 import model.dto.VenueResponseDTO;
 
+@Repository
 public class VenueDAO {
     private static final String SELECT_COLUMNS =
             "SELECT venue_id, venue_name, venue_address, venue_capacity FROM venue ";
     
-    private JDBCUtil jdbcUtil = null;
-    
-    public VenueDAO() {
-        jdbcUtil = new JDBCUtil();
-    }
-    
     public List<VenueResponseDTO> selectVenueList() throws SQLException {
         String sql = SELECT_COLUMNS + "ORDER BY venue_name";
+        JDBCUtil jdbcUtil = new JDBCUtil(); 
         jdbcUtil.setSqlAndParameters(sql, null);
         
         List<VenueResponseDTO> venueList = new ArrayList<>();
         
         try {
-            ResultSet rs = executeQueryOrThrow();
+            ResultSet rs = jdbcUtil.executeQuery();  
             
             while(rs.next()) {
                 venueList.add(mapVenue(rs));
@@ -47,10 +45,11 @@ public class VenueDAO {
     }
     
     private VenueResponseDTO findOne(String sql, Object[] params) throws SQLException {
+        JDBCUtil jdbcUtil = new JDBCUtil();  
         jdbcUtil.setSqlAndParameters(sql, params);
         
         try {
-            ResultSet rs = executeQueryOrThrow();
+            ResultSet rs = jdbcUtil.executeQuery(); 
             
             if(rs.next()) {
                 return mapVenue(rs);
@@ -75,16 +74,6 @@ public class VenueDAO {
         venue.setVenueCapacity(rs.getInt("venue_capacity"));
     
         return venue;
-    }
-    
-    private ResultSet executeQueryOrThrow() throws SQLException {
-        ResultSet rs = jdbcUtil.executeQuery();
-        
-        if(rs == null) {
-            throw new SQLException("쿼리 실행 실패: " + jdbcUtil.getSql());
-        }
-        
-        return rs;
     }
     
     private SQLException toSQLException(String message, Exception ex) {

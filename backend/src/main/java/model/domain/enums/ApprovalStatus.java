@@ -1,5 +1,8 @@
 package model.domain.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 public enum ApprovalStatus {
     PENDING("P"), // 심사중
     APPROVED("A"), // 승인
@@ -9,8 +12,10 @@ public enum ApprovalStatus {
 
     ApprovalStatus(String code) { this.code = code; }
 
+    @JsonValue
     public String getCode() { return code; }
 
+    @JsonCreator
     public static ApprovalStatus fromCode(String code) {
         for (ApprovalStatus a : values()) {
             if (a.code.equals(code)) return a;

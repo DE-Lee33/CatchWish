@@ -1,5 +1,8 @@
 package model.domain.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 public enum SeatStatus {
     AVAILABLE("A"),       // 예매가능
     HELD("H"),            // 선점중
@@ -10,8 +13,10 @@ public enum SeatStatus {
 
     SeatStatus(String code) { this.code = code; }
 
+    @JsonValue
     public String getCode() { return code; }
 
+    @JsonCreator
     public static SeatStatus fromCode(String code) {
         for (SeatStatus s : values()) {
             if (s.code.equals(code)) return s;

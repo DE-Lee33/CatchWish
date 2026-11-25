@@ -1,8 +1,13 @@
 package model.dao;
 
+import java.sql.SQLException; 
+
+import org.springframework.stereotype.Repository;
+
 import model.domain.CanceledTicketSchedule;
 import model.domain.enums.ScheduleStatus;
 
+@Repository
 public class CanceledTicketScheduleDAO {
     // 취소표 재오픈 일정 등록 (M27)
     public int insertSchedule(CanceledTicketSchedule schedule) {
@@ -31,7 +36,7 @@ public class CanceledTicketScheduleDAO {
             return result;
 
         } catch (Exception e) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }
             throw new RuntimeException("취소표 재오픈 일정 등록 실패", e);
 
         } finally {

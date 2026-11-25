@@ -11,7 +11,7 @@ public class Notification {
     private Timestamp createdAt;
     private Timestamp sendAt;
     private Long memberId;
-    private String isRead;
+    private boolean isRead;
     private Long wishlistId;
     private Long canceledTicketScheduleId;
     
@@ -20,7 +20,7 @@ public class Notification {
     public Notification(Long notificationId, String notificationType,
                         SendStatus sendStatus, Timestamp createdAt,
                         Timestamp sendAt, Long memberId,
-                        String isRead, Long wishlistId,
+                        boolean isRead, Long wishlistId,
                         Long canceledTicketScheduleId) {
         this.notificationId = notificationId;
         this.notificationType = notificationType;
@@ -68,10 +68,10 @@ public class Notification {
     public void setMemberId(Long memberId) {
         this.memberId = memberId;
     }
-    public String getIsRead() {
+    public boolean getIsRead() {
         return isRead;
     }
-    public void setIsRead(String isRead) {
+    public void setIsRead(boolean isRead) {
         this.isRead = isRead;
     }
     public Long getWishlistId() {

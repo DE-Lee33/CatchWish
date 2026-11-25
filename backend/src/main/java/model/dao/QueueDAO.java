@@ -1,11 +1,15 @@
 package model.dao;
 
 import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.stereotype.Repository;
 
 import model.domain.Queue;
 import model.domain.enums.QueueStatus;
 import model.dto.QueueStatusDTO;
 
+@Repository
 public class QueueDAO {
 
     // 1. 대기열 진입
@@ -62,7 +66,7 @@ public class QueueDAO {
             return queueId;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { } 
             throw ex;
         } finally {
             jdbcUtil.close();
@@ -173,7 +177,7 @@ public class QueueDAO {
             return result;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (Exception ignore) { }  
             throw ex;
         } finally {
             jdbcUtil.close();
@@ -202,7 +206,7 @@ public class QueueDAO {
             return result;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (Exception ignore) { }  
             throw ex;
         } finally {
             jdbcUtil.close();
@@ -234,7 +238,7 @@ public class QueueDAO {
             return result;
 
         } catch (Exception ex) {
-            jdbcUtil.rollback();
+            try { jdbcUtil.rollback(); } catch (Exception ignore) { }  
             throw ex;
         } finally {
             jdbcUtil.close();

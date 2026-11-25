@@ -5,17 +5,14 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.stereotype.Repository;
+
 import model.domain.Seat;
 import model.domain.enums.SeatStatus;
 import model.dto.SectorAvailabilityDTO;
 
+@Repository
 public class SeatDAO {
-    private JDBCUtil jdbcUtil = null;
-
-    public SeatDAO() {
-        jdbcUtil = new JDBCUtil();
-    }
-
     //특정 좌석 배치도의 전체 좌석 조회
     public List<Seat> selectSeatsByLayoutId(long seatLayoutId)
             throws SQLException {
@@ -28,6 +25,7 @@ public class SeatDAO {
 
 
         List<Seat> seatList = new ArrayList<>();
+        JDBCUtil jdbcUtil = new JDBCUtil();  
 
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] { seatLayoutId });
@@ -82,7 +80,8 @@ public class SeatDAO {
 
 
         List<SectorAvailabilityDTO> sectorList = new ArrayList<>();
-
+        JDBCUtil jdbcUtil = new JDBCUtil();   
+        
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] { SeatStatus.AVAILABLE.getCode(), seatLayoutId });
 

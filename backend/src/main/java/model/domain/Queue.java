@@ -11,7 +11,7 @@ public class Queue {
     private Integer position;
     private QueueStatus status;
     private String authCode;
-    private String isVerified;
+    private boolean isVerified;
     private Timestamp createdAt;
     private Long memberId;
     private Long performanceId;
@@ -29,7 +29,7 @@ public class Queue {
 
     // 전체 생성자
     public Queue(Long queueId, Integer position, QueueStatus status,
-                 String authCode, String isVerified, Timestamp createdAt,
+                 String authCode, boolean isVerified, Timestamp createdAt,
                  Long memberId, Long performanceId) {
         this.queueId = queueId;
         this.position = position;
@@ -73,11 +73,11 @@ public class Queue {
         this.authCode = authCode;
     }
 
-    public String getIsVerified() {
+    public boolean getIsVerified() {
         return isVerified;
     }
 
-    public void setIsVerified(String isVerified) {
+    public void setIsVerified(boolean isVerified) {
         this.isVerified = isVerified;
     }
 
