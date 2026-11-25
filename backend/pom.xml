@@ -21,6 +21,8 @@
 		<junit.version>4.13.2</junit.version>
 		<oracle-jdbc-driver.version>21.3.0.0</oracle-jdbc-driver.version>
 		<spring.version>6.2.11</spring.version>
+		<mybatis.version>3.5.19</mybatis.version>
+		<mybatis-spring.version>3.0.5</mybatis-spring.version>
 	</properties>
 
 	<dependencies>
@@ -39,6 +41,25 @@
 			<version>${spring.version}</version>
 		</dependency>
 
+		<!-- MyBatis -->
+		<dependency>
+		    <groupId>org.mybatis</groupId>
+		    <artifactId>mybatis</artifactId>
+		    <version>${mybatis.version}</version>
+		</dependency>
+		<dependency>
+		    <groupId>org.mybatis</groupId>
+		    <artifactId>mybatis-spring</artifactId>
+		    <version>${mybatis-spring.version}</version>
+		</dependency>
+		
+		<!-- mybatis-spring이 필요로 하는 Spring 트랜잭션·JDBC 모듈 -->
+		<dependency>
+		    <groupId>org.springframework</groupId>
+		    <artifactId>spring-jdbc</artifactId>
+		    <version>${spring.version}</version>
+		</dependency>
+		
 		<!-- logback -->
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
