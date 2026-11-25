@@ -19,7 +19,6 @@ import model.domain.enums.SeatStatus;
  * - 테스트용 VENUE/SEAT_LAYOUT/SECTOR/SEAT/BOOKING을 직접 만들고 끝나면 지운다.
  * - ID는 NEXTVAL을 먼저 받아서 사용한다 (MAX 조회는 공용 DB에서 남의 행을 가리킬 수 있음).
  * - 전역 UPDATE(복원)는 참여용 오버로드로 실행하고 rollback해서 공용 DB에 반영하지 않는다.
- *   (restoreCancelledAndExpiredSeats(JDBCUtil) 오버로드가 있어야 컴파일됨)
  */
 public class BookingSeatDAOTest {
 
@@ -246,7 +245,6 @@ public class BookingSeatDAOTest {
     public void restore_seatWithActiveBookingIsNotRestored() throws Exception {
         System.out.println("\n[TEST] restoreCancelledAndExpiredSeats (활성 예매 좌석 제외) 시작");
         // 같은 좌석이 취소 예매와 최근 결제대기 예매에 모두 연결된 경우 (이중 예매 방지)
-        // 주의: BOOKING_SEAT에 SEAT_ID UNIQUE 제약이 있으면 이 테스트는 제거
         long cancelled = createBooking(BookingStatus.CANCELED.getCode());
         long active = createBooking(BookingStatus.WAITING_PAYMENT.getCode());
         dao.insertBookingSeat(cancelled, seatId, 50000.0);
@@ -268,8 +266,8 @@ public class BookingSeatDAOTest {
     }
 
     @Test
-    public void restore_bookedSeatIsNotRestored() throws Exception {
-        System.out.println("\n[TEST] restoreCancelledAndExpiredSeats (B 좌석 제외) 시작");
+    public void restore_bookedSeatOfCancelledBookingBecomesAvailable() throws Exception {
+        System.out.println("\n[TEST] restoreCancelledAndExpiredSeats (취소 예매의 B 좌석) 시작");
         long cancelled = createBooking(BookingStatus.CANCELED.getCode());
         dao.insertBookingSeat(cancelled, seatId, 50000.0);
         setSeatStatus(seatId, SeatStatus.BOOKED.getCode());
@@ -280,12 +278,36 @@ public class BookingSeatDAOTest {
             dao.restoreCancelledAndExpiredSeats(jdbc);
             String status = seatStatus(jdbc, seatId);
             System.out.println("[INFO] 복원 쿼리 실행 후 좌석 상태: " + status);
-            assertEquals("B 상태 좌석은 복원 대상이 아닙니다.", SeatStatus.BOOKED.getCode(), status);
+            assertEquals("취소 예매의 B 좌석은 A로 복원되어야 합니다.", SeatStatus.AVAILABLE.getCode(), status);
             jdbc.rollback();
         } finally {
             jdbc.close();
         }
-        System.out.println("[PASS] B 상태 좌석은 복원되지 않음");
+        System.out.println("[PASS] 취소 예매의 B 좌석이 A로 복원됨");
+    }
+    
+    @Test
+    public void restore_bookedSeatWithConfirmedBookingIsNotRestored() throws Exception {
+        System.out.println("\n[TEST] restoreCancelledAndExpiredSeats (확정 예매 좌석 제외) 시작");
+        long cancelled = createBooking(BookingStatus.CANCELED.getCode());
+        long confirmed = createBooking(BookingStatus.CONFIRMED.getCode());
+        dao.insertBookingSeat(cancelled, seatId, 50000.0);
+        dao.insertBookingSeat(confirmed, seatId, 50000.0);
+        setSeatStatus(seatId, SeatStatus.BOOKED.getCode());
+        System.out.println("[INFO] 선행: 취소 예매(" + cancelled + ")와 확정 예매(" + confirmed
+                + ")에 같은 좌석 연결, 좌석 상태 B");
+
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            dao.restoreCancelledAndExpiredSeats(jdbc);
+            String status = seatStatus(jdbc, seatId);
+            System.out.println("[INFO] 복원 쿼리 실행 후 좌석 상태: " + status);
+            assertEquals("확정 예매가 있는 B 좌석은 복원되면 안 됩니다.", SeatStatus.BOOKED.getCode(), status);
+            jdbc.rollback();
+        } finally {
+            jdbc.close();
+        }
+        System.out.println("[PASS] 확정 예매가 있는 B 좌석은 복원되지 않음");
     }
 
     // ===================== 헬퍼 =====================
