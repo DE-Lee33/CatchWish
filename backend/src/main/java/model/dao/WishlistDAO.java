@@ -1,19 +1,22 @@
 package model.dao;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Repository;
 
-import model.domain.Wishlist;
 import model.dto.WishlistResponseDTO;
+import model.mapper.WishlistMapper;
 
 @Repository
 public class WishlistDAO {
 
+    private final WishlistMapper wishlistMapper;
+    
+    public WishlistDAO(WishlistMapper wishlistMapper) {
+        this.wishlistMapper = wishlistMapper;
+    }
+    
     // 1. 위시리스트 등록
     public int insertWishlist(Long memberId, Long performanceId,
                               Long sectorId, Integer priority) throws Exception {
@@ -44,85 +47,10 @@ public class WishlistDAO {
     }
 
 
-    // 2. 회원별 위시리스트 조회
+    // 2. 회원별 위시리스트 조회 (MyBatis 이용)
     public List<WishlistResponseDTO> selectWishlistByMemberId(Long memberId)
             throws Exception {
-
-        JDBCUtil jdbcUtil = new JDBCUtil();
-        List<WishlistResponseDTO> wishlistList = new ArrayList<>();
-
-        try {
-            String sql = "SELECT W.WISHLIST_ID, W.MEMBER_ID, "
-                       + "W.PERFORMANCE_ID, W.SECTOR_ID, W.PRIORITY, "
-                       + "W.CREATED_AT, P.PERFORMANCE_NAME, "
-                       + "P.SHOW_AT, S.SECTOR_NAME "
-                       + "FROM WISHLIST W "
-                       + "JOIN PERFORMANCE P "
-                       + "ON W.PERFORMANCE_ID = P.PERFORMANCE_ID "
-                       + "LEFT JOIN SECTOR S "
-                       + "ON W.SECTOR_ID = S.SECTOR_ID "
-                       + "WHERE W.MEMBER_ID = ? "
-                       + "ORDER BY W.PRIORITY ASC NULLS LAST, "
-                       + "W.CREATED_AT DESC";
-
-            jdbcUtil.setSqlAndParameters(sql,
-                new Object[] { memberId });
-
-            ResultSet rs = jdbcUtil.executeQuery();
-
-            if (rs == null) {
-                throw new SQLException("위시리스트 조회에 실패했습니다.");
-            }
-
-            while (rs.next()) {
-
-                Long wishlistId = rs.getLong("WISHLIST_ID");
-                Long resultMemberId = rs.getLong("MEMBER_ID");
-                Long performanceId = rs.getLong("PERFORMANCE_ID");
-
-                Long sectorId = rs.getLong("SECTOR_ID");
-                if (rs.wasNull()) {
-                    sectorId = null;
-                }
-
-                int priorityValue = rs.getInt("PRIORITY");
-                Integer priority = rs.wasNull() ? null : priorityValue;
-
-                Timestamp createdAt = rs.getTimestamp("CREATED_AT");
-
-                Wishlist wishlist = new Wishlist(
-                    wishlistId,
-                    resultMemberId,
-                    performanceId,
-                    sectorId,
-                    priority,
-                    createdAt
-                );
-
-                String performanceTitle =
-                    rs.getString("PERFORMANCE_NAME");
-
-                Timestamp performanceDate =
-                    rs.getTimestamp("SHOW_AT");
-
-                String sectorName =
-                    rs.getString("SECTOR_NAME");
-
-                WishlistResponseDTO dto = new WishlistResponseDTO(
-                    wishlist,
-                    performanceTitle,
-                    performanceDate,
-                    sectorName
-                );
-
-                wishlistList.add(dto);
-            }
-
-            return wishlistList;
-
-        } finally {
-            jdbcUtil.close();
-        }
+        return wishlistMapper.selectWishlistByMemberId(memberId);
     }
 
 
