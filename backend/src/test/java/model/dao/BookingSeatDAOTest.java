@@ -4,324 +4,380 @@ import static org.junit.Assert.*;
 import static org.junit.Assume.assumeTrue;
 
 import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import model.domain.enums.BookingStatus;
+import model.domain.enums.SeatStatus;
+
 /**
- * BookingSeatDAO 테스트 클래스
- * 공용 DB 오염 및 데이터 부재(무결성 제약조건)를 방지하기 위해 Venue부터 순서대로 직접
- * 생성하고 테스트 종료 후 안전하게 삭제합니다.
- *
- * BOOKING.PAYMENT_ID는 nullable이라 (BOOKING_PAYMENT_FK는 NULL이면 검사하지 않음)
- * 테스트 전용 BOOKING을 PAYMENT_ID = NULL로 직접 만들고 끝나면 지운다.
- * 그래서 공용 BOOKING/PAYMENT 행을 빌리지 않는다.
+ * BookingSeatDAO 테스트
+ * - 테스트용 VENUE/SEAT_LAYOUT/SECTOR/SEAT/BOOKING을 직접 만들고 끝나면 지운다.
+ * - ID는 NEXTVAL을 먼저 받아서 사용한다 (MAX 조회는 공용 DB에서 남의 행을 가리킬 수 있음).
+ * - 전역 UPDATE(복원)는 참여용 오버로드로 실행하고 rollback해서 공용 DB에 반영하지 않는다.
+ *   (restoreCancelledAndExpiredSeats(JDBCUtil) 오버로드가 있어야 컴파일됨)
  */
 public class BookingSeatDAOTest {
 
-    private BookingSeatDAO bookingSeatDao;
+    private BookingSeatDAO dao;
 
-    // 테스트 간 데이터 격리를 위한 식별자 ID 변수들
-    private long testVenueId = 0;
-    private long testSeatLayoutId = 0;
-    private long testSectorId = 0;
-    private long testSeatId = 0;
-    private long testBookingId = 0;
-    private long testBookingSeatId = 0;
-    private long existingSeatGradeId = 0;
-    private long existingPerformanceId = 0;
-    private long existingMemberId = 0;
+    private long memberId, gradeId, performanceId;
+    private long venueId, layoutId, sectorId, seatId;
+    private final List<Long> bookingIds = new ArrayList<>();
 
     @Before
     public void setUp() throws Exception {
         assumeTrue("db.properties를 만들어주세요 (src/main/resources/db.properties.example 참고)",
                 getClass().getClassLoader().getResource("db.properties") != null);
-        bookingSeatDao = new BookingSeatDAO();
+        dao = new BookingSeatDAO();
         System.out.println("\n[SETUP] BookingSeatDAO 생성 완료, db.properties 확인됨");
 
-        // 0. MEMBER 및 SEAT_GRADE의 같은 행에서 GRADE_ID, PERFORMANCE_ID 조회 (FK 충족)
-        existingMemberId = findAnyId("MEMBER", "MEMBER_ID");
-        assumeTrue("MEMBER 데이터가 필요합니다.", existingMemberId > 0);
-        System.out.println("[SETUP] 기존 MEMBER_ID 사용: " + existingMemberId);
+        memberId = queryLong("SELECT MIN(MEMBER_ID) FROM MEMBER");
+        assumeTrue("MEMBER 데이터가 필요합니다.", memberId > 0);
+        System.out.println("[SETUP] 기존 MEMBER_ID 사용: " + memberId);
 
-        long[] gp = findAnyGradeAndPerformance();
-        assumeTrue("SEAT_GRADE 데이터가 필요합니다.", gp != null);
-        existingSeatGradeId = gp[0];
-        existingPerformanceId = gp[1];
-        System.out.println("[SETUP] 기존 GRADE_ID=" + existingSeatGradeId
-                + ", PERFORMANCE_ID=" + existingPerformanceId + " 사용");
-
-        // 테스트 전용 BOOKING 생성 (PAYMENT_ID = NULL)
-        testBookingId = insertTestBooking(existingMemberId, existingPerformanceId, "W");
-        System.out.println("[SETUP] 테스트 BOOKING 생성 (상태 W, PAYMENT_ID NULL): " + testBookingId);
-
-        testVenueId = insertTestVenue("테스트공연장_BS", 100);
-        System.out.println("[SETUP] 테스트 VENUE 생성: " + testVenueId);
-        testSeatLayoutId = insertTestSeatLayout(testVenueId, "테스트레이아웃_BS");
-        System.out.println("[SETUP] 테스트 SEAT_LAYOUT 생성: " + testSeatLayoutId);
-
-        // 구역: 조회한 GRADE_ID + PERFORMANCE_ID 쌍 사용
-        testSectorId = insertTestSector(testSeatLayoutId, "테스트구역_BS", existingSeatGradeId, existingPerformanceId);
-        System.out.println("[SETUP] 테스트 SECTOR 생성: " + testSectorId);
-
-        // ROW_NUM은 VARCHAR2(10) 컬럼에 맞춰 10자 이내 문자열('A')로 입력
-        testSeatId = insertTestSeat(testSeatLayoutId, testSectorId, "A", "A");
-        System.out.println("[SETUP] 테스트 SEAT 생성 (상태 A): " + testSeatId);
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        if (testSeatLayoutId == 0 && testSectorId == 0 && testSeatId == 0 && testBookingId == 0
-                && testVenueId == 0) {
-            System.out.println("[TEARDOWN] 정리할 데이터 없음");
-            return;
-        }
-
-        JDBCUtil jdbcUtil = new JDBCUtil();
-        try {
-            // 외래키 제약조건 역순으로 안전하게 삭제
-            // 테스트 전용 BOOKING에 연결된 BOOKING_SEAT는 BOOKING_ID 기준으로 모두 삭제
-            if (testBookingId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING_SEAT WHERE BOOKING_ID = ?",
-                        new Object[] { testBookingId });
-                int n = jdbcUtil.executeUpdate();
-                System.out.println("[TEARDOWN] BOOKING_SEAT 삭제: " + n + "건");
-            }
-            if (testSeatId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM SEAT WHERE SEAT_ID = ?", new Object[] { testSeatId });
-                int n = jdbcUtil.executeUpdate();
-                System.out.println("[TEARDOWN] SEAT 삭제: " + n + "건");
-            }
-            if (testSectorId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM SECTOR WHERE SECTOR_ID = ?", new Object[] { testSectorId });
-                int n = jdbcUtil.executeUpdate();
-                System.out.println("[TEARDOWN] SECTOR 삭제: " + n + "건");
-            }
-            if (testSeatLayoutId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM SEAT_LAYOUT WHERE SEAT_LAYOUT_ID = ?",
-                        new Object[] { testSeatLayoutId });
-                int n = jdbcUtil.executeUpdate();
-                System.out.println("[TEARDOWN] SEAT_LAYOUT 삭제: " + n + "건");
-            }
-            if (testVenueId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM VENUE WHERE VENUE_ID = ?", new Object[] { testVenueId });
-                int n = jdbcUtil.executeUpdate();
-                System.out.println("[TEARDOWN] VENUE 삭제: " + n + "건");
-            }
-            if (testBookingId > 0) {
-                jdbcUtil.setSqlAndParameters("DELETE FROM BOOKING WHERE BOOKING_ID = ?",
-                        new Object[] { testBookingId });
-                int n = jdbcUtil.executeUpdate();
-                System.out.println("[TEARDOWN] BOOKING 삭제: " + n + "건");
-            }
-            jdbcUtil.commit();
-            System.out.println("[TEARDOWN] commit 완료");
-        } catch (Exception e) {
-            try {
-                jdbcUtil.rollback();
-            } catch (Exception ignore) {
-            }
-            System.out.println("[TEARDOWN] 실패, rollback: " + e.getMessage());
-            throw e;
-        } finally {
-            jdbcUtil.close();
-        }
-    }
-
-    @Test
-    public void testUpdateSeatToHeld() throws Exception {
-        System.out.println("\n[TEST] updateSeatToHeld 시작");
-        int result = bookingSeatDao.updateSeatToHeld(testSeatId);
-        System.out.println("[INFO] 첫 번째 호출 결과: " + result);
-        assertEquals("예매 가능('A') 상태의 좌석이 정상적으로 선점('H') 상태로 변경되어야 합니다.", 1, result);
-        System.out.println("[PASS] A → H 변경 성공");
-
-        int failResult = bookingSeatDao.updateSeatToHeld(testSeatId);
-        System.out.println("[INFO] 두 번째 호출 결과: " + failResult);
-        assertEquals("이미 선점된 좌석은 중복 선점할 수 없어야 합니다.", 0, failResult);
-        System.out.println("[PASS] 이미 선점된 좌석은 0건 변경 (중복 선점 방지)");
-    }
-
-    @Test
-    public void testInsertBookingSeat() throws Exception {
-        System.out.println("\n[TEST] insertBookingSeat 시작");
-        double price = 50000.0;
-        int result = bookingSeatDao.insertBookingSeat(testBookingId, testSeatId, price);
-        System.out.println("[INFO] insert 결과: " + result);
-        assertEquals("예매-좌석 매핑 정보가 정상적으로 등록되어야 합니다.", 1, result);
-        System.out.println("[PASS] BOOKING_SEAT 등록 성공 (bookingId=" + testBookingId
-                + ", seatId=" + testSeatId + ", price=" + price + ")");
-
-        testBookingSeatId = findLatestBookingSeatId(testBookingId);
-        assertTrue(testBookingSeatId > 0);
-        System.out.println("[PASS] 생성된 BOOKING_SEAT_ID: " + testBookingSeatId);
-    }
-
-    @Test
-    public void testReleaseSeatsByBookingId() throws Exception {
-        System.out.println("\n[TEST] releaseSeatsByBookingId 시작");
-        int held = bookingSeatDao.updateSeatToHeld(testSeatId);
-        System.out.println("[INFO] 선행: 좌석 홀드 결과 " + held);
-        bookingSeatDao.insertBookingSeat(testBookingId, testSeatId, 50000.0);
-        testBookingSeatId = findLatestBookingSeatId(testBookingId);
-        System.out.println("[INFO] 선행: BOOKING_SEAT_ID " + testBookingSeatId + " 등록");
-
-        int result = bookingSeatDao.releaseSeatsByBookingId(testBookingId);
-        System.out.println("[INFO] 홀드 해제된 좌석 수: " + result);
-        assertEquals("선점된 좌석이 예매 가능('A') 상태로 복원되어야 합니다.", 1, result);
-        System.out.println("[PASS] H → A 복원 성공");
-    }
-
-    @Test
-    public void testRestoreCancelledAndExpiredSeats() throws Exception {
-        System.out.println("\n[TEST] restoreCancelledAndExpiredSeats 시작");
-        int result = bookingSeatDao.restoreCancelledAndExpiredSeats();
-        System.out.println("[INFO] 복원된 좌석 수: " + result + " (공용 DB에 commit됨)");
-        assertTrue("만료 및 취소 좌석 복원 쿼리가 정상 실행되어야 합니다.", result >= 0);
-        System.out.println("[PASS] 쿼리 정상 실행");
-    }
-
-    // --- 테스트 데이터 세팅용 헬퍼 메서드들 ---
-
-    /** 테스트 전용 BOOKING 생성: PAYMENT_ID는 NULL (nullable 컬럼). 시퀀스를 먼저 받아서 ID를 정확히 얻는다 */
-    private long insertTestBooking(long memberId, long performanceId, String status) throws Exception {
-        JDBCUtil jdbc = new JDBCUtil();
-        try {
-            jdbc.setSqlAndParameters("SELECT SEQ_BOOKING.NEXTVAL FROM DUAL", null);
-            ResultSet rs = jdbc.executeQuery();
-            rs.next();
-            long bookingId = rs.getLong(1);
-
-            String sql = "INSERT INTO BOOKING (BOOKING_ID, BOOKING_STATUS, CREATED_AT, MEMBER_ID, PAYMENT_ID, PERFORMANCE_ID) "
-                    + "VALUES (?, ?, SYSDATE, ?, NULL, ?)";
-            jdbc.setSqlAndParameters(sql, new Object[] { bookingId, status, memberId, performanceId });
-            jdbc.executeUpdate();
-            jdbc.commit();
-            return bookingId;
-        } finally {
-            jdbc.close();
-        }
-    }
-
-    private long insertTestVenue(String name, int capacity) throws Exception {
-        JDBCUtil jdbc = new JDBCUtil();
-        try {
-            String sql = "INSERT INTO VENUE (VENUE_ID, VENUE_NAME, VENUE_CAPACITY) VALUES (SEQ_VENUE.NEXTVAL, ?, ?)";
-            jdbc.setSqlAndParameters(sql, new Object[] { name, capacity });
-            jdbc.executeUpdate();
-            jdbc.commit();
-
-            jdbc.setSqlAndParameters("SELECT MAX(VENUE_ID) FROM VENUE", null);
-            ResultSet rs = jdbc.executeQuery();
-            if (rs.next())
-                return rs.getLong(1);
-        } finally {
-            jdbc.close();
-        }
-        return -1;
-    }
-
-    private long insertTestSeatLayout(long venueId, String name) throws Exception {
-        JDBCUtil jdbc = new JDBCUtil();
-        try {
-            String sql = "INSERT INTO SEAT_LAYOUT (SEAT_LAYOUT_ID, VENUE_ID, SEAT_LAYOUT_NAME, IS_TEMPLATE) "
-                    + "VALUES (SEQ_SEAT_LAYOUT.NEXTVAL, ?, ?, 'Y')";
-            jdbc.setSqlAndParameters(sql, new Object[] { venueId, name });
-            jdbc.executeUpdate();
-            jdbc.commit();
-
-            jdbc.setSqlAndParameters("SELECT MAX(SEAT_LAYOUT_ID) FROM SEAT_LAYOUT WHERE VENUE_ID = ?",
-                    new Object[] { venueId });
-            ResultSet rs = jdbc.executeQuery();
-            if (rs.next())
-                return rs.getLong(1);
-        } finally {
-            jdbc.close();
-        }
-        return -1;
-    }
-
-    private long insertTestSector(long layoutId, String sectorName, long seatGradeId, long perfId) throws Exception {
-        JDBCUtil jdbc = new JDBCUtil();
-        try {
-            String sql = "INSERT INTO SECTOR (SECTOR_ID, SEAT_LAYOUT_ID, SECTOR_NAME, GRADE_ID, PERFORMANCE_ID) "
-                    + "VALUES (SEQ_SECTOR.NEXTVAL, ?, ?, ?, ?)";
-            jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorName, seatGradeId, perfId });
-            jdbc.executeUpdate();
-            jdbc.commit();
-
-            jdbc.setSqlAndParameters("SELECT MAX(SECTOR_ID) FROM SECTOR WHERE SEAT_LAYOUT_ID = ?",
-                    new Object[] { layoutId });
-            ResultSet rs = jdbc.executeQuery();
-            if (rs.next())
-                return rs.getLong(1);
-        } finally {
-            jdbc.close();
-        }
-        return -1;
-    }
-
-    private long insertTestSeat(long layoutId, long sectorId, String rowNum, String status) throws Exception {
-        JDBCUtil jdbc = new JDBCUtil();
-        try {
-            String sql = "INSERT INTO SEAT (SEAT_ID, SEAT_LAYOUT_ID, SECTOR_ID, ROW_NUM, COLUMN_NUM, SEAT_NUMBER, SEAT_STATUS) "
-                    + "VALUES (SEQ_SEAT.NEXTVAL, ?, ?, ?, 1, 'TEST-1', ?)";
-            jdbc.setSqlAndParameters(sql, new Object[] { layoutId, sectorId, rowNum, status });
-            jdbc.executeUpdate();
-            jdbc.commit();
-
-            jdbc.setSqlAndParameters("SELECT MAX(SEAT_ID) FROM SEAT WHERE SEAT_LAYOUT_ID = ?",
-                    new Object[] { layoutId });
-            ResultSet rs = jdbc.executeQuery();
-            if (rs.next())
-                return rs.getLong(1);
-        } finally {
-            jdbc.close();
-        }
-        return -1;
-    }
-
-    /** 테스트 전용 BOOKING에 연결된 가장 최근 BOOKING_SEAT_ID (다른 사람의 행과 섞이지 않게 BOOKING_ID로 한정) */
-    private long findLatestBookingSeatId(long bookingId) throws Exception {
-        JDBCUtil jdbc = new JDBCUtil();
-        try {
-            jdbc.setSqlAndParameters("SELECT MAX(BOOKING_SEAT_ID) FROM BOOKING_SEAT WHERE BOOKING_ID = ?",
-                    new Object[] { bookingId });
-            ResultSet rs = jdbc.executeQuery();
-            if (rs.next())
-                return rs.getLong(1);
-        } finally {
-            jdbc.close();
-        }
-        return -1;
-    }
-
-    private long[] findAnyGradeAndPerformance() throws Exception {
+        // GRADE_ID와 PERFORMANCE_ID는 같은 행에서 가져와야 FK가 맞는다
         JDBCUtil jdbc = new JDBCUtil();
         try {
             jdbc.setSqlAndParameters("SELECT GRADE_ID, PERFORMANCE_ID FROM SEAT_GRADE WHERE ROWNUM = 1", null);
             ResultSet rs = jdbc.executeQuery();
-            if (rs.next())
-                return new long[] { rs.getLong(1), rs.getLong(2) };
+            assumeTrue("SEAT_GRADE 데이터가 필요합니다.", rs.next());
+            gradeId = rs.getLong(1);
+            performanceId = rs.getLong(2);
         } finally {
             jdbc.close();
         }
-        return null;
+        System.out.println("[SETUP] 기존 GRADE_ID=" + gradeId + ", PERFORMANCE_ID=" + performanceId + " 사용");
+
+        // 테스트 데이터는 하나의 트랜잭션으로 만든다
+        jdbc = new JDBCUtil();
+        try {
+            venueId = nextVal(jdbc, "SEQ_VENUE");
+            execute(jdbc, "INSERT INTO VENUE (VENUE_ID, VENUE_NAME, VENUE_CAPACITY) VALUES (?, ?, ?)",
+                    venueId, "테스트공연장_BS", 100);
+            System.out.println("[SETUP] 테스트 VENUE 생성: " + venueId);
+
+            layoutId = nextVal(jdbc, "SEQ_SEAT_LAYOUT");
+            execute(jdbc, "INSERT INTO SEAT_LAYOUT (SEAT_LAYOUT_ID, VENUE_ID, SEAT_LAYOUT_NAME, IS_TEMPLATE) "
+                    + "VALUES (?, ?, ?, 'Y')", layoutId, venueId, "테스트레이아웃_BS");
+            System.out.println("[SETUP] 테스트 SEAT_LAYOUT 생성: " + layoutId);
+
+            sectorId = nextVal(jdbc, "SEQ_SECTOR");
+            execute(jdbc, "INSERT INTO SECTOR (SECTOR_ID, SEAT_LAYOUT_ID, SECTOR_NAME, GRADE_ID, PERFORMANCE_ID) "
+                    + "VALUES (?, ?, ?, ?, ?)", sectorId, layoutId, "테스트구역_BS", gradeId, performanceId);
+            System.out.println("[SETUP] 테스트 SECTOR 생성: " + sectorId);
+
+            seatId = nextVal(jdbc, "SEQ_SEAT");
+            execute(jdbc, "INSERT INTO SEAT (SEAT_ID, SEAT_LAYOUT_ID, SECTOR_ID, ROW_NUM, COLUMN_NUM, SEAT_NUMBER, SEAT_STATUS) "
+                    + "VALUES (?, ?, ?, 'A', 1, 'TEST-1', ?)",
+                    seatId, layoutId, sectorId, SeatStatus.AVAILABLE.getCode());
+            System.out.println("[SETUP] 테스트 SEAT 생성 (상태 A): " + seatId);
+
+            jdbc.commit();
+        } catch (Exception e) {
+            jdbc.rollback();
+            throw e;
+        } finally {
+            jdbc.close();
+        }
     }
 
-    private long findAnyId(String table, String idColumn) throws Exception {
+    @After
+    public void tearDown() throws Exception {
+        // 외래키 역순. 한 단계가 실패해도 나머지는 계속 정리한다
+        for (long id : bookingIds) {
+            deleteQuietly("BOOKING_SEAT(BOOKING_ID)", "DELETE FROM BOOKING_SEAT WHERE BOOKING_ID = ?", id);
+        }
+        deleteQuietly("BOOKING_SEAT(SEAT_ID)", "DELETE FROM BOOKING_SEAT WHERE SEAT_ID = ?", seatId);
+        for (long id : bookingIds) {
+            deleteQuietly("BOOKING", "DELETE FROM BOOKING WHERE BOOKING_ID = ?", id);
+        }
+        deleteQuietly("SEAT", "DELETE FROM SEAT WHERE SEAT_ID = ?", seatId);
+        deleteQuietly("SECTOR", "DELETE FROM SECTOR WHERE SECTOR_ID = ?", sectorId);
+        deleteQuietly("SEAT_LAYOUT", "DELETE FROM SEAT_LAYOUT WHERE SEAT_LAYOUT_ID = ?", layoutId);
+        deleteQuietly("VENUE", "DELETE FROM VENUE WHERE VENUE_ID = ?", venueId);
+        System.out.println("[TEARDOWN] 정리 완료");
+    }
+
+    // ===================== updateSeatToHeld =====================
+
+    @Test
+    public void updateSeatToHeld_availableSeatBecomesHeld() throws Exception {
+        System.out.println("\n[TEST] updateSeatToHeld (A → H) 시작");
+        int result = dao.updateSeatToHeld(seatId);
+        System.out.println("[INFO] 호출 결과: " + result);
+        assertEquals(1, result);
+        assertEquals(SeatStatus.HELD.getCode(), seatStatus(seatId));
+        System.out.println("[PASS] A → H 변경 성공, DB 재조회로 확인");
+    }
+
+    @Test
+    public void updateSeatToHeld_cannotHoldTwice() throws Exception {
+        System.out.println("\n[TEST] updateSeatToHeld 중복 선점 시작");
+        int first = dao.updateSeatToHeld(seatId);
+        int second = dao.updateSeatToHeld(seatId);
+        System.out.println("[INFO] 첫 번째: " + first + ", 두 번째: " + second);
+        assertEquals(1, first);
+        assertEquals("이미 선점된 좌석은 중복 선점 불가", 0, second);
+        assertEquals(SeatStatus.HELD.getCode(), seatStatus(seatId));
+        System.out.println("[PASS] 이미 선점된 좌석은 0건 변경 (중복 선점 방지)");
+    }
+
+    @Test
+    public void updateSeatToHeld_nonExistingSeat() throws Exception {
+        System.out.println("\n[TEST] updateSeatToHeld 없는 좌석 시작");
+        int result = dao.updateSeatToHeld(Long.MAX_VALUE);
+        System.out.println("[INFO] 호출 결과: " + result);
+        assertEquals(0, result);
+        System.out.println("[PASS] 없는 좌석은 0건 변경");
+    }
+
+    // ===================== insertBookingSeat =====================
+
+    @Test
+    public void insertBookingSeat_savesRowWithPrice() throws Exception {
+        System.out.println("\n[TEST] insertBookingSeat 시작");
+        long bookingId = createBooking(BookingStatus.WAITING_PAYMENT.getCode());
+
+        int result = dao.insertBookingSeat(bookingId, seatId, 50000.0);
+        System.out.println("[INFO] insert 결과: " + result);
+        assertEquals(1, result);
+
         JDBCUtil jdbc = new JDBCUtil();
         try {
-            jdbc.setSqlAndParameters("SELECT MIN(" + idColumn + ") FROM " + table, null);
+            jdbc.setSqlAndParameters(
+                    "SELECT PRICE_AT_BOOKING FROM BOOKING_SEAT WHERE BOOKING_ID = ? AND SEAT_ID = ?",
+                    new Object[] { bookingId, seatId });
+            ResultSet rs = jdbc.executeQuery();
+            assertTrue("BOOKING_SEAT 행이 저장되어야 합니다.", rs.next());
+            double price = rs.getDouble(1);
+            System.out.println("[INFO] 저장된 가격: " + price);
+            assertEquals(50000.0, price, 0.001);
+            assertFalse("정확히 1행이어야 합니다.", rs.next());
+        } finally {
+            jdbc.close();
+        }
+        System.out.println("[PASS] BOOKING_SEAT 등록 성공 (bookingId=" + bookingId
+                + ", seatId=" + seatId + ", price=50000.0)");
+    }
+
+    // ===================== releaseSeatsByBookingId =====================
+
+    @Test
+    public void releaseSeatsByBookingId_heldSeatBecomesAvailable() throws Exception {
+        System.out.println("\n[TEST] releaseSeatsByBookingId (H → A) 시작");
+        long bookingId = createBooking(BookingStatus.WAITING_PAYMENT.getCode());
+        int held = dao.updateSeatToHeld(seatId);
+        dao.insertBookingSeat(bookingId, seatId, 50000.0);
+        System.out.println("[INFO] 선행: 좌석 홀드 결과 " + held + ", BOOKING_SEAT 등록 완료");
+
+        int result = dao.releaseSeatsByBookingId(bookingId);
+        System.out.println("[INFO] 홀드 해제된 좌석 수: " + result);
+        assertEquals(1, result);
+        assertEquals(SeatStatus.AVAILABLE.getCode(), seatStatus(seatId));
+        System.out.println("[PASS] H → A 복원 성공");
+    }
+
+    @Test
+    public void releaseSeatsByBookingId_bookedSeatIsNotReleased() throws Exception {
+        System.out.println("\n[TEST] releaseSeatsByBookingId (B 좌석은 유지) 시작");
+        long bookingId = createBooking(BookingStatus.WAITING_PAYMENT.getCode());
+        dao.insertBookingSeat(bookingId, seatId, 50000.0);
+        setSeatStatus(seatId, SeatStatus.BOOKED.getCode());
+        System.out.println("[INFO] 선행: 좌석 상태를 B로 설정");
+
+        int result = dao.releaseSeatsByBookingId(bookingId);
+        System.out.println("[INFO] 해제된 좌석 수: " + result);
+        assertEquals("H가 아닌 좌석은 건드리지 않아야 합니다.", 0, result);
+        assertEquals(SeatStatus.BOOKED.getCode(), seatStatus(seatId));
+        System.out.println("[PASS] B 좌석은 해제되지 않음");
+    }
+
+    // ===================== 트랜잭션 참여용 =====================
+
+    @Test
+    public void participatingMethod_rollbackLeavesNoChange() throws Exception {
+        System.out.println("\n[TEST] 참여용 메소드 rollback 시작");
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            int result = dao.updateSeatToHeld(jdbc, seatId);
+            System.out.println("[INFO] 참여용 호출 결과: " + result + " (commit 전)");
+            assertEquals(1, result);
+            jdbc.rollback();
+            System.out.println("[INFO] rollback 실행");
+        } finally {
+            jdbc.close();
+        }
+        assertEquals("롤백했으므로 좌석은 그대로 A", SeatStatus.AVAILABLE.getCode(), seatStatus(seatId));
+        System.out.println("[PASS] rollback 후 좌석 상태 A 유지");
+    }
+
+    // ===================== restoreCancelledAndExpiredSeats =====================
+    // 공용 DB 전체가 대상인 UPDATE라서 참여용 오버로드로 실행하고 rollback한다.
+
+    @Test
+    public void restore_heldSeatOfCancelledBookingBecomesAvailable() throws Exception {
+        System.out.println("\n[TEST] restoreCancelledAndExpiredSeats (취소 예매의 H 좌석) 시작");
+        long cancelled = createBooking(BookingStatus.CANCELED.getCode());
+        dao.insertBookingSeat(cancelled, seatId, 50000.0);
+        setSeatStatus(seatId, SeatStatus.HELD.getCode());
+        System.out.println("[INFO] 선행: 취소 예매(" + cancelled + ")에 좌석 연결, 좌석 상태 H");
+
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            int restored = dao.restoreCancelledAndExpiredSeats(jdbc);
+            System.out.println("[INFO] 복원된 좌석 수: " + restored + " (rollback 예정, 공용 DB 미반영)");
+            assertTrue(restored >= 1);
+            assertEquals(SeatStatus.AVAILABLE.getCode(), seatStatus(jdbc, seatId));   // 같은 트랜잭션에서 확인
+            System.out.println("[PASS] 트랜잭션 안에서 H → A 확인");
+            jdbc.rollback();
+        } finally {
+            jdbc.close();
+        }
+        assertEquals("롤백 후 원래 상태", SeatStatus.HELD.getCode(), seatStatus(seatId));
+        System.out.println("[PASS] rollback 후 원래 상태(H) 유지, 공용 DB 영향 없음");
+    }
+
+    @Test
+    public void restore_seatWithActiveBookingIsNotRestored() throws Exception {
+        System.out.println("\n[TEST] restoreCancelledAndExpiredSeats (활성 예매 좌석 제외) 시작");
+        // 같은 좌석이 취소 예매와 최근 결제대기 예매에 모두 연결된 경우 (이중 예매 방지)
+        // 주의: BOOKING_SEAT에 SEAT_ID UNIQUE 제약이 있으면 이 테스트는 제거
+        long cancelled = createBooking(BookingStatus.CANCELED.getCode());
+        long active = createBooking(BookingStatus.WAITING_PAYMENT.getCode());
+        dao.insertBookingSeat(cancelled, seatId, 50000.0);
+        dao.insertBookingSeat(active, seatId, 50000.0);
+        setSeatStatus(seatId, SeatStatus.HELD.getCode());
+        System.out.println("[INFO] 선행: 취소 예매(" + cancelled + ")와 활성 예매(" + active + ")에 같은 좌석 연결");
+
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            dao.restoreCancelledAndExpiredSeats(jdbc);
+            String status = seatStatus(jdbc, seatId);
+            System.out.println("[INFO] 복원 쿼리 실행 후 좌석 상태: " + status);
+            assertEquals("활성 예매가 있는 좌석은 복원되면 안 됩니다.", SeatStatus.HELD.getCode(), status);
+            jdbc.rollback();
+        } finally {
+            jdbc.close();
+        }
+        System.out.println("[PASS] 활성 예매가 있는 좌석은 복원되지 않음");
+    }
+
+    @Test
+    public void restore_bookedSeatIsNotRestored() throws Exception {
+        System.out.println("\n[TEST] restoreCancelledAndExpiredSeats (B 좌석 제외) 시작");
+        long cancelled = createBooking(BookingStatus.CANCELED.getCode());
+        dao.insertBookingSeat(cancelled, seatId, 50000.0);
+        setSeatStatus(seatId, SeatStatus.BOOKED.getCode());
+        System.out.println("[INFO] 선행: 취소 예매(" + cancelled + ")에 좌석 연결, 좌석 상태 B");
+
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            dao.restoreCancelledAndExpiredSeats(jdbc);
+            String status = seatStatus(jdbc, seatId);
+            System.out.println("[INFO] 복원 쿼리 실행 후 좌석 상태: " + status);
+            assertEquals("B 상태 좌석은 복원 대상이 아닙니다.", SeatStatus.BOOKED.getCode(), status);
+            jdbc.rollback();
+        } finally {
+            jdbc.close();
+        }
+        System.out.println("[PASS] B 상태 좌석은 복원되지 않음");
+    }
+
+    // ===================== 헬퍼 =====================
+
+    /** 시퀀스를 먼저 받아서 그 값으로 insert한다 */
+    private long nextVal(JDBCUtil jdbc, String sequence) throws Exception {
+        jdbc.setSqlAndParameters("SELECT " + sequence + ".NEXTVAL FROM DUAL", null);
+        ResultSet rs = jdbc.executeQuery();
+        rs.next();
+        return rs.getLong(1);
+    }
+
+    private void execute(JDBCUtil jdbc, String sql, Object... params) throws Exception {
+        jdbc.setSqlAndParameters(sql, params);
+        jdbc.executeUpdate();
+    }
+
+    /** 테스트 전용 BOOKING (PAYMENT_ID는 NULL). tearDown에서 지울 수 있게 ID를 기록한다 */
+    private long createBooking(String status) throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            long id = nextVal(jdbc, "SEQ_BOOKING");
+            bookingIds.add(id);   // insert 전에 기록: 중간에 실패해도 정리 시도
+            execute(jdbc, "INSERT INTO BOOKING (BOOKING_ID, BOOKING_STATUS, CREATED_AT, MEMBER_ID, PAYMENT_ID, PERFORMANCE_ID) "
+                    + "VALUES (?, ?, SYSDATE, ?, NULL, ?)", id, status, memberId, performanceId);
+            jdbc.commit();
+            System.out.println("[INFO] 테스트 BOOKING 생성 (상태 " + status + ", PAYMENT_ID NULL): " + id);
+            return id;
+        } catch (Exception e) {
+            jdbc.rollback();
+            throw e;
+        } finally {
+            jdbc.close();
+        }
+    }
+
+    private String seatStatus(long id) throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            return seatStatus(jdbc, id);
+        } finally {
+            jdbc.close();
+        }
+    }
+
+    /** 같은 연결(트랜잭션)에서 좌석 상태 조회 */
+    private String seatStatus(JDBCUtil jdbc, long id) throws Exception {
+        jdbc.setSqlAndParameters("SELECT SEAT_STATUS FROM SEAT WHERE SEAT_ID = ?", new Object[] { id });
+        ResultSet rs = jdbc.executeQuery();
+        assertTrue("좌석이 존재해야 합니다. id=" + id, rs.next());
+        return rs.getString(1);
+    }
+
+    private void setSeatStatus(long id, String status) throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            execute(jdbc, "UPDATE SEAT SET SEAT_STATUS = ? WHERE SEAT_ID = ?", status, id);
+            jdbc.commit();
+        } finally {
+            jdbc.close();
+        }
+    }
+
+    private long queryLong(String sql) throws Exception {
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            jdbc.setSqlAndParameters(sql, null);
             ResultSet rs = jdbc.executeQuery();
             if (rs.next()) {
-                long id = rs.getLong(1);
-                return rs.wasNull() ? -1 : id;
+                long v = rs.getLong(1);
+                return rs.wasNull() ? -1 : v;
             }
         } finally {
             jdbc.close();
         }
         return -1;
+    }
+
+    /** 정리 한 단계가 실패해도 다음 단계를 계속한다. 삭제 건수를 출력한다 */
+    private void deleteQuietly(String label, String sql, long id) {
+        if (id == 0) return;
+        JDBCUtil jdbc = new JDBCUtil();
+        try {
+            jdbc.setSqlAndParameters(sql, new Object[] { id });
+            int n = jdbc.executeUpdate();
+            jdbc.commit();
+            System.out.println("[TEARDOWN] " + label + " 삭제: " + n + "건");
+        } catch (Exception e) {
+            System.out.println("[TEARDOWN] " + label + " 정리 실패 (" + id + "): " + e.getMessage());
+            try { jdbc.rollback(); } catch (Exception ignore) { }
+        } finally {
+            jdbc.close();
+        }
     }
 }

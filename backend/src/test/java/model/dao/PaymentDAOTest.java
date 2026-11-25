@@ -126,25 +126,28 @@ public class PaymentDAOTest {
     private long insertTestBooking(long memberId, long performanceId, String status) throws Exception {
         JDBCUtil jdbc = new JDBCUtil();
         try {
-            String sql = "INSERT INTO BOOKING (BOOKING_ID, MEMBER_ID, PERFORMANCE_ID, BOOKING_STATUS, CREATED_AT) "
-                       + "VALUES (SEQ_BOOKING.NEXTVAL, ?, ?, ?, SYSDATE)";
-            jdbc.setSqlAndParameters(sql, new Object[] { memberId, performanceId, status });
+            jdbc.setSqlAndParameters("SELECT SEQ_BOOKING.NEXTVAL FROM DUAL", null);
+            ResultSet rs = jdbc.executeQuery();
+            rs.next();
+            long bookingId = rs.getLong(1);
+
+            jdbc.setSqlAndParameters(
+                    "INSERT INTO BOOKING (BOOKING_ID, MEMBER_ID, PERFORMANCE_ID, BOOKING_STATUS, CREATED_AT) "
+                    + "VALUES (?, ?, ?, ?, SYSDATE)",
+                    new Object[] { bookingId, memberId, performanceId, status });
             jdbc.executeUpdate();
             jdbc.commit();
-
-            jdbc.setSqlAndParameters("SELECT MAX(BOOKING_ID) FROM BOOKING", null);
-            ResultSet rs = jdbc.executeQuery();
-            if (rs.next()) return rs.getLong(1);
+            return bookingId;
         } finally {
             jdbc.close();
         }
-        return -1;
     }
 
-    private long findLatestPaymentId() throws Exception {
+    private long findLatestPaymentId() throws Exception {   // 내 예매의 결제로 한정
         JDBCUtil jdbc = new JDBCUtil();
         try {
-            jdbc.setSqlAndParameters("SELECT MAX(PAYMENT_ID) FROM PAYMENT", null);
+            jdbc.setSqlAndParameters("SELECT MAX(PAYMENT_ID) FROM PAYMENT WHERE BOOKING_ID = ?",
+                    new Object[] { testBookingId });
             ResultSet rs = jdbc.executeQuery();
             if (rs.next()) return rs.getLong(1);
         } finally {

@@ -8,17 +8,46 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class BookingSeatDAO {
+    /** 단독용 */
     public int restoreCancelledAndExpiredSeats() throws SQLException {
-        String sql = "UPDATE seat "
-                   + "SET seat_status = ? "
-                   + "WHERE seat_id IN ( "
+        JDBCUtil jdbcUtil = new JDBCUtil();
+        try {
+            int result = restoreCancelledAndExpiredSeats(jdbcUtil);
+            jdbcUtil.commit();
+            return result;
+        } catch (Exception ex) {
+            rollbackQuietly(jdbcUtil);
+            throw toSQLException("취소/만료 좌석 복원 실패", ex);
+        } finally {
+            jdbcUtil.close();
+        }
+    }
+    
+    /** 트랜잭션 참여용 (commit/rollback/close는 호출한 쪽에서) */
+    public int restoreCancelledAndExpiredSeats(JDBCUtil jdbcUtil) throws Exception {
+        String sql = "UPDATE seat s "
+                   + "SET s.seat_status = ? "
+                   + "WHERE s.seat_status IN (?, ?) "
+                   + "AND s.seat_id IN ( "
                    + "    SELECT bs.seat_id "
                    + "    FROM booking_seat bs JOIN booking b ON bs.booking_id = b.booking_id "
-                   + "    WHERE b.booking_status = ? OR (b.booking_status = ? AND b.created_at < SYSDATE - (10 / (24 * 60))) "
+                   + "    WHERE b.booking_status = ? "
+                   + "       OR (b.booking_status = ? AND b.created_at < SYSDATE - (10 / (24 * 60))) "
+                   + ") "
+                   + "AND NOT EXISTS ( "
+                   + "    SELECT 1 "
+                   + "    FROM booking_seat bs2 JOIN booking b2 ON bs2.booking_id = b2.booking_id "
+                   + "    WHERE bs2.seat_id = s.seat_id "
+                   + "      AND (b2.booking_status = ? "
+                   + "        OR (b2.booking_status = ? AND b2.created_at >= SYSDATE - (10 / (24 * 60)))) "
                    + ")";
-        
-        return executeChange(sql, new Object[] { SeatStatus.AVAILABLE.getCode(), BookingStatus.CANCELED.getCode(),
-                BookingStatus.WAITING_PAYMENT.getCode() });
+
+        jdbcUtil.setSqlAndParameters(sql, new Object[] {
+                SeatStatus.AVAILABLE.getCode(),
+                SeatStatus.HELD.getCode(), SeatStatus.CANCEL_PENDING.getCode(),
+                BookingStatus.CANCELED.getCode(), BookingStatus.WAITING_PAYMENT.getCode(),
+                BookingStatus.CONFIRMED.getCode(), BookingStatus.WAITING_PAYMENT.getCode() });
+        return jdbcUtil.executeUpdate();
     }
 
     public int releaseSeatsByBookingId(long bookingId) throws SQLException {
@@ -93,27 +122,6 @@ public class BookingSeatDAO {
         jdbcUtil.setSqlAndParameters(sql, new Object[] { SeatStatus.HELD.getCode(), seatId, SeatStatus.AVAILABLE.getCode() });
         
         return jdbcUtil.executeUpdate();
-    }
-
-    private int executeChange(String sql, Object[] params) throws SQLException {
-        JDBCUtil jdbcUtil = new JDBCUtil();   
-        try {
-            jdbcUtil.setSqlAndParameters(sql, params);
-
-            int result = jdbcUtil.executeUpdate();
-
-            jdbcUtil.commit();
-
-            return result;
-        }
-        catch (Exception ex) {
-            rollbackQuietly(jdbcUtil);
-
-            throw toSQLException("예매-좌석 처리 실패", ex);
-        }
-        finally {
-            jdbcUtil.close();
-        }
     }
 
     private void rollbackQuietly(JDBCUtil jdbcUtil) {   
