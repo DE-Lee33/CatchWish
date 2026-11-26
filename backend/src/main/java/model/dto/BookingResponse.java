@@ -5,13 +5,15 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import model.domain.enums.BookingStatus;
+
 public class BookingResponse {
 
     private Long bookingId;
     private Long memberId;
     private Long performanceId;
     private String performanceName;
-    private String bookingStatus;
+    private BookingStatus bookingStatus;
     private Timestamp createdAt;
     private String refundAccount;
 
@@ -36,7 +38,7 @@ public class BookingResponse {
         return performanceName;
     }
 
-    public String getBookingStatus() {
+    public BookingStatus getBookingStatus() {
         return bookingStatus;
     }
 
@@ -68,7 +70,7 @@ public class BookingResponse {
         this.performanceName = performanceName;
     }
 
-    public void setBookingStatus(String bookingStatus) {
+    public void setBookingStatus(BookingStatus bookingStatus) {
         this.bookingStatus = bookingStatus;
     }
 

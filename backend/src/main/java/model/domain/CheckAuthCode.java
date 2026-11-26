@@ -6,14 +6,14 @@ public class CheckAuthCode {
     private Long authCodeId;
     private Long memberId;
     private Long performanceId;
-    private String isVerified;
+    private boolean isVerified;
     private Timestamp expiresAt;
     private Timestamp createdAt;
     
     public CheckAuthCode() {}
 
     public CheckAuthCode(Long authCodeId, Long memberId,
-                         Long performanceId, String isVerified,
+                         Long performanceId, boolean isVerified,
                          Timestamp expiresAt, Timestamp createdAt) {
         this.authCodeId = authCodeId;
         this.memberId = memberId;
@@ -40,10 +40,10 @@ public class CheckAuthCode {
     public void setPerformanceId(Long performanceId) {
         this.performanceId = performanceId;
     }
-    public String getIsVerified() {
+    public boolean getIsVerified() {
         return isVerified;
     }
-    public void setIsVerified(String isVerified) {
+    public void setIsVerified(boolean isVerified) {
         this.isVerified = isVerified;
     }
     public Timestamp getExpiresAt() {

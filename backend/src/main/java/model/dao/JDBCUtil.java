@@ -165,11 +165,11 @@ public class JDBCUtil {
 	}
 
 	public void commit() throws SQLException {
-		conn.commit();
+	    if (conn != null) conn.commit();
 	}
 
 	public void rollback() throws SQLException {
-		conn.rollback();
+	    if (conn != null) conn.rollback();
 	}
 
 	// DataSource 를 종료

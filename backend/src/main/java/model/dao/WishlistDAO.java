@@ -1,10 +1,3 @@
-/*
- * [변경 요약] WishlistDAO  (표시: [수정])
- * [수정] insertWishlist, deleteWishlist, updatePriority의 catch 블록:
- *        rollback()을 try/catch로 감쌈 (선택: 원래 예외 보존, 필수는 아님)
- * 변경 없음: 모든 메서드가 throws Exception, SQLException import는 이미 있음
- */
-
 package model.dao;
 
 import java.sql.ResultSet;
@@ -42,7 +35,7 @@ public class WishlistDAO {
             return result;
 
         } catch (Exception ex) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   
             throw ex;
 
         } finally {
@@ -153,7 +146,7 @@ public class WishlistDAO {
             return result;
 
         } catch (Exception ex) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { } 
             throw ex;
 
         } finally {
@@ -183,7 +176,7 @@ public class WishlistDAO {
             return result;
 
         } catch (Exception ex) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }  
             throw ex;
 
         } finally {

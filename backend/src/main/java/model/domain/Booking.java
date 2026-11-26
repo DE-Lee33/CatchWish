@@ -3,20 +3,22 @@ package model.domain;
 
 import java.sql.Timestamp;
 
+import model.domain.enums.BookingStatus;
+
 public class Booking {
 
     private Long bookingId;
-    private String bookingStatus;
     private String refundAccount;
     private Timestamp createdAt;
     private Long memberId;
     private Long paymentId;
     private Long performanceId;
+    private BookingStatus bookingStatus;
 
     public Booking() {
     }
 
-    public Booking(Long bookingId, String bookingStatus,
+    public Booking(Long bookingId, BookingStatus bookingStatus,
                    String refundAccount, Timestamp createdAt,
                    Long memberId, Long paymentId,
                    Long performanceId) {
@@ -37,11 +39,11 @@ public class Booking {
         this.bookingId = bookingId;
     }
 
-    public String getBookingStatus() {
+    public BookingStatus getBookingStatus() {
         return bookingStatus;
     }
 
-    public void setBookingStatus(String bookingStatus) {
+    public void setBookingStatus(BookingStatus bookingStatus) {
         this.bookingStatus = bookingStatus;
     }
 

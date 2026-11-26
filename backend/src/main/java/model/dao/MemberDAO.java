@@ -1,10 +1,3 @@
-/*
- * [변경 요약] MemberDAO  (표시: [수정] [추가] [삭제])
- * [삭제] private JDBCUtil jdbcUtil 필드, 생성자 (요청 간 Connection 공유 방지)
- * [수정] create, findOne, queryCount, executeChange: 메서드 안에서 JDBCUtil 지역 생성
- * [수정] nextSequence, rollbackQuietly: JDBCUtil을 파라미터로 받음
- * [삭제] executeQueryOrThrow (JDBCUtil.executeQuery()가 예외를 던지므로 불필요)
- */
 package model.dao;
 
 import java.sql.ResultSet;
@@ -22,12 +15,6 @@ import model.domain.Member;
 public class MemberDAO {
 	private static final String SELECT_COLUMNS =
 			"SELECT MEMBER_ID, LOGIN_ID, PASSWORD_HASH, MEMBER_NAME, EMAIL, MEMBER_ROLE, CREATED_AT FROM MEMBER ";
-
-	// [삭제] private JDBCUtil jdbcUtil = null;
-
-	// [삭제] public MemberDAO() {
-	// [삭제] 	jdbcUtil = new JDBCUtil();
-	// [삭제] }
 
 	/** M1 아이디 중복확인: 이미 사용 중이면 true */
 	public boolean existsLoginId(String loginId) throws Exception {
@@ -48,9 +35,9 @@ public class MemberDAO {
 	public long create(Member member) throws SQLException {
 		String sql = "INSERT INTO MEMBER (MEMBER_ID, LOGIN_ID, PASSWORD_HASH, MEMBER_NAME, EMAIL, MEMBER_ROLE, CREATED_AT) "
 				+ "VALUES (?, ?, ?, ?, ?, 'USER', SYSDATE)";
-		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
+		JDBCUtil jdbcUtil = new JDBCUtil();  
 		try {
-			long memberId = nextSequence(jdbcUtil, "SEQ_MEMBER");   // [수정]
+			long memberId = nextSequence(jdbcUtil, "SEQ_MEMBER"); 
 			jdbcUtil.setSqlAndParameters(sql, new Object[] {
 					memberId, member.getLoginId(), member.getPasswordHash(),
 					member.getMemberName(), member.getEmail() });
@@ -61,7 +48,7 @@ public class MemberDAO {
 			member.setMemberRole(Member.ROLE_USER);
 			return memberId;
 		} catch (Exception ex) {
-			rollbackQuietly(jdbcUtil);   // [수정]
+			rollbackQuietly(jdbcUtil);   
 			throw toSQLException("회원 등록 실패", ex);
 		} finally {
 			jdbcUtil.close();
@@ -94,10 +81,10 @@ public class MemberDAO {
 	// ===================== 내부 공통 처리 =====================
 
 	private Member findOne(String sql, Object[] params) throws Exception {
-		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
+		JDBCUtil jdbcUtil = new JDBCUtil();  
 		try {
-			jdbcUtil.setSqlAndParameters(sql, params);   // [수정] try 안으로 이동
-			ResultSet rs = jdbcUtil.executeQuery();   // [수정] executeQueryOrThrow() -> executeQuery()
+			jdbcUtil.setSqlAndParameters(sql, params);   
+			ResultSet rs = jdbcUtil.executeQuery();   
 			if (rs.next()) {
 				return mapMember(rs);
 			}
@@ -120,10 +107,10 @@ public class MemberDAO {
 	}
 
 	private int queryCount(String sql, Object[] params) throws Exception {
-		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
+		JDBCUtil jdbcUtil = new JDBCUtil();  
 		try {
-			jdbcUtil.setSqlAndParameters(sql, params);   // [수정] try 안으로 이동
-			ResultSet rs = jdbcUtil.executeQuery();   // [수정]
+			jdbcUtil.setSqlAndParameters(sql, params);   
+			ResultSet rs = jdbcUtil.executeQuery();   
 			rs.next();
 			return rs.getInt(1);
 		} finally {
@@ -133,14 +120,14 @@ public class MemberDAO {
 
 	/** INSERT·UPDATE·DELETE 공통: 성공하면 commit, 실패하면 rollback */
 	private int executeChange(String sql, Object[] params) throws SQLException {
-		JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
+		JDBCUtil jdbcUtil = new JDBCUtil();   
 		try {
-			jdbcUtil.setSqlAndParameters(sql, params);   // [수정] try 안으로 이동
+			jdbcUtil.setSqlAndParameters(sql, params);  
 			int result = jdbcUtil.executeUpdate();
 			jdbcUtil.commit();
 			return result;
 		} catch (Exception ex) {
-			rollbackQuietly(jdbcUtil);   // [수정]
+			rollbackQuietly(jdbcUtil);  
 			throw toSQLException("회원 정보 변경 실패", ex);
 		} finally {
 			jdbcUtil.close();
@@ -148,7 +135,7 @@ public class MemberDAO {
 	}
 
 	/** 시퀀스 다음 값 조회 (close는 호출한 쪽에서) */
-	private long nextSequence(JDBCUtil jdbcUtil, String sequenceName) throws Exception {   // [수정] 파라미터 추가
+	private long nextSequence(JDBCUtil jdbcUtil, String sequenceName) throws Exception {  
 		jdbcUtil.setSqlAndParameters("SELECT " + sequenceName + ".NEXTVAL FROM DUAL", null);
 		ResultSet rs = jdbcUtil.executeQuery();   // [수정]
 		if (!rs.next()) {
@@ -157,10 +144,8 @@ public class MemberDAO {
 		return rs.getLong(1);
 	}
 
-	// [삭제] executeQueryOrThrow(): JDBCUtil.executeQuery()가 이제 실패 시 예외를 던지므로 null 검사가 불필요
-
 	/** 연결을 얻기 전에 실패한 경우에도 rollback에서 다른 예외가 나지 않게 막는다 */
-	private void rollbackQuietly(JDBCUtil jdbcUtil) {   // [수정] 파라미터 추가
+	private void rollbackQuietly(JDBCUtil jdbcUtil) {  
 		try {
 			jdbcUtil.rollback();
 		} catch (Exception ignore) {

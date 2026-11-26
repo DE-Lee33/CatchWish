@@ -1,9 +1,3 @@
-/*
- * [변경 요약] SeatDAO  (표시: [수정] [추가] [삭제])
- * [삭제] private JDBCUtil jdbcUtil 필드, 생성자 (요청 간 Connection 공유 방지)
- * [추가] selectSeatsByLayoutId, selectSectorAvailability: 메서드 안에서 JDBCUtil 지역 생성
- * 변경 없음: SQL, 예외 처리, rs == null 검사
- */
 package model.dao;
 
 import java.sql.ResultSet;
@@ -14,16 +8,11 @@ import java.util.List;
 import org.springframework.stereotype.Repository;
 
 import model.domain.Seat;
+import model.domain.enums.SeatStatus;
 import model.dto.SectorAvailabilityDTO;
 
 @Repository
 public class SeatDAO {
-    // [삭제] private JDBCUtil jdbcUtil = null;
-
-    // [삭제] public SeatDAO() {
-    // [삭제]     jdbcUtil = new JDBCUtil();
-    // [삭제] }
-
     //특정 좌석 배치도의 전체 좌석 조회
     public List<Seat> selectSeatsByLayoutId(long seatLayoutId)
             throws SQLException {
@@ -36,7 +25,7 @@ public class SeatDAO {
 
 
         List<Seat> seatList = new ArrayList<>();
-        JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
+        JDBCUtil jdbcUtil = new JDBCUtil();  
 
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] { seatLayoutId });
@@ -56,7 +45,7 @@ public class SeatDAO {
                 seat.setRowNum(rs.getString("row_num"));
                 seat.setColumnNum(rs.getLong("column_num"));
                 seat.setSeatNumber(rs.getString("seat_number"));
-                seat.setSeatStatus(rs.getString("seat_status"));
+                seat.setSeatStatus(SeatStatus.fromCode(rs.getString("seat_status")));
 
                 seatList.add(seat);
             }
@@ -80,7 +69,7 @@ public class SeatDAO {
 
         String sql = "SELECT s.sector_id, s.sector_name, "
                    + "COUNT(st.seat_id) AS total_seats, "
-                   + "COUNT(CASE WHEN st.seat_status = 'A' "
+                   + "COUNT(CASE WHEN st.seat_status = ? "
                    + "THEN 1 END) AS available_seats "
                    + "FROM sector s "
                    + "LEFT JOIN seat st ON s.sector_id = st.sector_id "
@@ -91,10 +80,10 @@ public class SeatDAO {
 
 
         List<SectorAvailabilityDTO> sectorList = new ArrayList<>();
-        JDBCUtil jdbcUtil = new JDBCUtil();   // [추가]
-
+        JDBCUtil jdbcUtil = new JDBCUtil();   
+        
         try {
-            jdbcUtil.setSqlAndParameters(sql, new Object[] { seatLayoutId });
+            jdbcUtil.setSqlAndParameters(sql, new Object[] { SeatStatus.AVAILABLE.getCode(), seatLayoutId });
 
             ResultSet rs = jdbcUtil.executeQuery();
 

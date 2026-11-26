@@ -1,19 +1,12 @@
-/*
- * [변경 요약] QueueDAO  (표시: [수정] [추가])
- * [추가] import java.sql.SQLException
- * [수정] insertQueue, updateQueueStatus, issueAuthCode, verifyAuthCode의 catch 블록:
- *        rollback()을 try/catch로 감쌈 (선택: 원래 예외 보존, 필수는 아님)
- * 변경 없음: 모든 메서드가 throws Exception이라 컴파일 에러 없음
- */
-
 package model.dao;
 
 import java.sql.ResultSet;
-import java.sql.SQLException;   // [추가]
+import java.sql.SQLException;
 
 import org.springframework.stereotype.Repository;
 
 import model.domain.Queue;
+import model.domain.enums.QueueStatus;
 import model.dto.QueueStatusDTO;
 
 @Repository
@@ -48,13 +41,14 @@ public class QueueDAO {
             String sql =
                     "INSERT INTO QUEUE " +
                     "(QUEUE_ID, POSITION, STATUS, CREATED_AT, MEMBER_ID, PERFORMANCE_ID) " +
-                    "VALUES (?, ?, 'W', SYSDATE, ?, ?)";
+                    "VALUES (?, ?, ?, SYSDATE, ?, ?)";
 
             jdbcUtil.setSqlAndParameters(
                     sql,
                     new Object[] {
                             queueId,
                             queueId,
+                            QueueStatus.WAITING.getCode(),
                             memberId,
                             performanceId
                     }
@@ -72,7 +66,7 @@ public class QueueDAO {
             return queueId;
 
         } catch (Exception ex) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { } 
             throw ex;
         } finally {
             jdbcUtil.close();
@@ -89,11 +83,12 @@ public class QueueDAO {
                 "SELECT QUEUE_ID, POSITION, STATUS " +
                 "FROM QUEUE " +
                 "WHERE MEMBER_ID = ? AND PERFORMANCE_ID = ? " +
-                "AND STATUS IN ('W', 'A')";
+                "AND STATUS IN (?, ?)";
 
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] {
-                    memberId, performanceId
+                    memberId, performanceId,
+                    QueueStatus.WAITING.getCode(), QueueStatus.TURN.getCode()
             });
 
             ResultSet rs = jdbcUtil.executeQuery();
@@ -102,7 +97,7 @@ public class QueueDAO {
                 return new Queue(
                         rs.getLong("QUEUE_ID"),
                         rs.getInt("POSITION"),
-                        rs.getString("STATUS")
+                        QueueStatus.fromCode(rs.getString("STATUS"))
                 );
             }
 
@@ -122,23 +117,24 @@ public class QueueDAO {
         String sql =
                 "SELECT q.QUEUE_ID, q.POSITION, q.STATUS, " +
                 "CASE " +
-                "WHEN q.STATUS = 'A' THEN 0 " +
-                "WHEN q.STATUS = 'W' THEN (" +
+                "WHEN q.STATUS = ? THEN 0 " +
+                "WHEN q.STATUS = ? THEN (" +
                 "SELECT COUNT(*) + 1 " +
                 "FROM QUEUE q2 " +
                 "WHERE q2.PERFORMANCE_ID = q.PERFORMANCE_ID " +
-                "AND q2.STATUS = 'W' " +
+                "AND q2.STATUS = ? " +
                 "AND q2.POSITION < q.POSITION) " +
                 "ELSE 0 END AS WAITING_POSITION, " +
                 "(SELECT COUNT(*) " +
                 "FROM QUEUE q3 " +
                 "WHERE q3.PERFORMANCE_ID = q.PERFORMANCE_ID " +
-                "AND q3.STATUS = 'W') AS TOTAL_WAITING " +
+                "AND q3.STATUS = ?) AS TOTAL_WAITING " +
                 "FROM QUEUE q " +
                 "WHERE q.QUEUE_ID = ?";
 
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] {
+                    QueueStatus.TURN.getCode(), QueueStatus.WAITING.getCode(), QueueStatus.WAITING.getCode(), QueueStatus.WAITING.getCode(),
                     queueId
             });
 
@@ -148,7 +144,7 @@ public class QueueDAO {
                 return new QueueStatusDTO(
                         rs.getLong("QUEUE_ID"),
                         rs.getInt("POSITION"),
-                        rs.getString("STATUS"),
+                        QueueStatus.fromCode(rs.getString("STATUS")),
                         rs.getInt("WAITING_POSITION"),
                         rs.getInt("TOTAL_WAITING")
                 );
@@ -162,7 +158,7 @@ public class QueueDAO {
     }
 
     // 4. 대기 상태 변경
-    public int updateQueueStatus(Long queueId, String status)
+    public int updateQueueStatus(Long queueId, QueueStatus status)
             throws Exception {
 
         JDBCUtil jdbcUtil = new JDBCUtil();
@@ -172,7 +168,7 @@ public class QueueDAO {
 
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] {
-                    status, queueId
+                    status.getCode(), queueId
             });
 
             int result = jdbcUtil.executeUpdate();
@@ -181,7 +177,7 @@ public class QueueDAO {
             return result;
 
         } catch (Exception ex) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (Exception ignore) { }  
             throw ex;
         } finally {
             jdbcUtil.close();
@@ -197,11 +193,11 @@ public class QueueDAO {
         String sql =
                 "UPDATE QUEUE " +
                 "SET AUTH_CODE = ?, IS_VERIFIED = 'N' " +
-                "WHERE QUEUE_ID = ? AND STATUS = 'A'";
+                "WHERE QUEUE_ID = ? AND STATUS = ?";
 
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] {
-                    authCode, queueId
+                    authCode, queueId, QueueStatus.TURN.getCode()
             });
 
             int result = jdbcUtil.executeUpdate();
@@ -210,7 +206,7 @@ public class QueueDAO {
             return result;
 
         } catch (Exception ex) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (Exception ignore) { }  
             throw ex;
         } finally {
             jdbcUtil.close();
@@ -228,12 +224,12 @@ public class QueueDAO {
                 "SET IS_VERIFIED = 'Y' " +
                 "WHERE QUEUE_ID = ? " +
                 "AND AUTH_CODE = ? " +
-                "AND STATUS = 'A' " +
+                "AND STATUS = ? " +
                 "AND IS_VERIFIED = 'N'";
 
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] {
-                    queueId, authCode
+                    queueId, authCode, QueueStatus.TURN.getCode()
             });
 
             int result = jdbcUtil.executeUpdate();
@@ -242,7 +238,7 @@ public class QueueDAO {
             return result;
 
         } catch (Exception ex) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (Exception ignore) { }  
             throw ex;
         } finally {
             jdbcUtil.close();
@@ -257,11 +253,11 @@ public class QueueDAO {
         String sql =
                 "SELECT IS_VERIFIED " +
                 "FROM QUEUE " +
-                "WHERE QUEUE_ID = ? AND STATUS = 'A'";
+                "WHERE QUEUE_ID = ? AND STATUS = ?";
 
         try {
             jdbcUtil.setSqlAndParameters(sql, new Object[] {
-                    queueId
+                    queueId, QueueStatus.TURN.getCode()
             });
 
             ResultSet rs = jdbcUtil.executeQuery();

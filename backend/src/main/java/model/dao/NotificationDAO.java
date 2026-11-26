@@ -1,8 +1,3 @@
-/*
- * [변경 요약] NotificationDAO  (표시: [수정] [삭제])
- * [수정] insertNotification, updateSendStatus, updateReadStatus: rollback()을 try/catch로 감쌈
- * [삭제] 조회 3곳의 rs == null 검사 (선택, 죽은 코드)
- */
 package model.dao;
 
 import java.sql.ResultSet;
@@ -14,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import model.domain.Notification;
 import model.domain.Wishlist;
+import model.domain.enums.SendStatus;
 
 @Repository
 public class NotificationDAO {
@@ -26,10 +22,11 @@ public class NotificationDAO {
                 + "(NOTIFICATION_ID, NOTIFICATION_TYPE, SEND_STATUS, "
                 + "CREATED_AT, MEMBER_ID, IS_READ, WISHLIST_ID, "
                 + "CANCELED_TICKET_SCHEDULE_ID) "
-                + "VALUES (SEQ_NOTIFICATION.NEXTVAL, ?, 'N', SYSDATE, ?, 'N', ?, ?)";
+                + "VALUES (SEQ_NOTIFICATION.NEXTVAL, ?, ?, SYSDATE, ?, 'N', ?, ?)";
 
         Object[] params = {
                 notification.getNotificationType(),
+                SendStatus.NOT_SENT.getCode(),
                 notification.getMemberId(),
                 notification.getWishlistId(),
                 notification.getCanceledTicketScheduleId()
@@ -42,7 +39,7 @@ public class NotificationDAO {
             return result;
 
         } catch (Exception e) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (Exception ignore) { }   
             throw new RuntimeException("알림 생성 실패", e);
 
         } finally {
@@ -70,7 +67,6 @@ public class NotificationDAO {
                     sql, new Object[]{scheduleId, sectorId});
 
             ResultSet rs = jdbcUtil.executeQuery();
-            // [삭제] if (rs == null) { throw new SQLException("알림 대상 조회 실패"); }
 
             while (rs.next()) {
                 Wishlist wishlist = new Wishlist();
@@ -100,14 +96,13 @@ public class NotificationDAO {
         List<Notification> notifications = new ArrayList<>();
 
         String sql = "SELECT * FROM NOTIFICATION "
-                + "WHERE SEND_STATUS = 'N' "
+                + "WHERE SEND_STATUS = ? "
                 + "ORDER BY CREATED_AT";
 
         try {
-            jdbcUtil.setSqlAndParameters(sql, new Object[]{});
+            jdbcUtil.setSqlAndParameters(sql, new Object[]{ SendStatus.NOT_SENT.getCode() });
 
             ResultSet rs = jdbcUtil.executeQuery();
-            // [삭제] if (rs == null) { throw new SQLException("발송 대기 알림 조회 실패"); }
 
             while (rs.next()) {
                 notifications.add(mapNotification(rs));
@@ -125,19 +120,20 @@ public class NotificationDAO {
 
     // 알림 발송 상태 변경
     public int updateSendStatus(
-            Long notificationId, String sendStatus) {
+            Long notificationId, SendStatus sendStatus) {
 
         JDBCUtil jdbcUtil = new JDBCUtil();
 
         String sql = "UPDATE NOTIFICATION "
                 + "SET SEND_STATUS = ?, "
-                + "SEND_AT = CASE WHEN ? = 'Y' "
+                + "SEND_AT = CASE WHEN ? = ? "
                 + "THEN SYSDATE ELSE SEND_AT END "
                 + "WHERE NOTIFICATION_ID = ? "
-                + "AND SEND_STATUS = 'N'";
+                + "AND SEND_STATUS = ?";
 
         Object[] params = {
-                sendStatus, sendStatus, notificationId
+                sendStatus.getCode(), sendStatus.getCode(), SendStatus.SENT.getCode(),
+                notificationId, SendStatus.NOT_SENT.getCode()
         };
 
         try {
@@ -147,7 +143,7 @@ public class NotificationDAO {
             return result;
 
         } catch (Exception e) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (Exception ignore) { }   
             throw new RuntimeException("알림 발송 상태 변경 실패", e);
 
         } finally {
@@ -169,7 +165,6 @@ public class NotificationDAO {
                     sql, new Object[]{memberId});
 
             ResultSet rs = jdbcUtil.executeQuery();
-            // [삭제] if (rs == null) { throw new SQLException("회원별 알림 조회 실패"); }
 
             while (rs.next()) {
                 notifications.add(mapNotification(rs));
@@ -204,7 +199,7 @@ public class NotificationDAO {
             return result;
 
         } catch (Exception e) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (Exception ignore) { }  
             throw new RuntimeException("알림 읽음 처리 실패", e);
 
         } finally {
@@ -220,12 +215,12 @@ public class NotificationDAO {
 
         notification.setNotificationId(rs.getLong("NOTIFICATION_ID"));
         notification.setNotificationType(rs.getString("NOTIFICATION_TYPE"));
-        notification.setSendStatus(rs.getString("SEND_STATUS"));
+        notification.setSendStatus(SendStatus.fromCode(rs.getString("SEND_STATUS")));
         notification.setCreatedAt(rs.getTimestamp("CREATED_AT"));
         notification.setSendAt(rs.getTimestamp("SEND_AT"));
         notification.setMemberId(rs.getLong("MEMBER_ID"));
-        notification.setIsRead(rs.getString("IS_READ"));
-
+        notification.setIsRead("Y".equals(rs.getString("IS_READ")));
+        
         long wishlistId = rs.getLong("WISHLIST_ID");
         notification.setWishlistId(rs.wasNull() ? null : wishlistId);
 

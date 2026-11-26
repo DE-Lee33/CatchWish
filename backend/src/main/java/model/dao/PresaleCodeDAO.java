@@ -1,9 +1,3 @@
-/*
- * [변경 요약] PresaleCodeDAO  (표시: [수정])
- * [수정] insertPresaleCode, updatePresaleCode, deletePresaleCode, insertVerification:
- *        rollback()을 try/catch로 감쌈 (컴파일 에러 해결, 원래 예외 보존)
- * 변경 없음: 조회 메서드 (rs == null 검사는 죽은 코드이지만 그대로 둠)
- */
 package model.dao;
 
 import java.sql.ResultSet;
@@ -42,7 +36,7 @@ public class PresaleCodeDAO {
             return result;
 
         } catch (Exception e) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }  
             throw new RuntimeException("선예매 코드 등록 실패", e);
 
         } finally {

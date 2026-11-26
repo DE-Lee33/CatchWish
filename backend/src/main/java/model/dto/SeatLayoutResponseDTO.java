@@ -4,7 +4,7 @@ public class SeatLayoutResponseDTO {
     private long seatLayoutId;
     private long venueId;
     private String seatLayoutName;
-    private String isTemplate;
+    private boolean isTemplate;
     private long sectorId;
     private String sectorName;
     
@@ -12,7 +12,7 @@ public class SeatLayoutResponseDTO {
         
     }
     
-    public SeatLayoutResponseDTO(long seatLayoutId, long venueId, String seatLayoutName, String isTemplate, long sectorId, String sectorName) {
+    public SeatLayoutResponseDTO(long seatLayoutId, long venueId, String seatLayoutName, boolean isTemplate, long sectorId, String sectorName) {
         this.seatLayoutId = seatLayoutId;
         this.venueId = venueId;
         this.seatLayoutName = seatLayoutName;
@@ -45,11 +45,11 @@ public class SeatLayoutResponseDTO {
         this.seatLayoutName = seatLayoutName;
     }
 
-    public String getIsTemplate() {
+    public boolean getIsTemplate() {
         return isTemplate;
     }
 
-    public void setIsTemplate(String isTemplate) {
+    public void setIsTemplate(boolean isTemplate) {
         this.isTemplate = isTemplate;
     }
 

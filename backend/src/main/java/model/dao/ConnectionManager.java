@@ -42,6 +42,10 @@ public class ConnectionManager {
         return ds.getConnection();
     }
     
+    public static DataSource getDataSource() {
+        return ds;
+    }
+    
     public void close() {
         try {
             ((BasicDataSource) ds).close();

@@ -1,15 +1,11 @@
-/*
- * [변경 요약] CanceledTicketScheduleDAO  (표시: [수정] [추가])
- * [추가] import java.sql.SQLException
- * [수정] catch 블록의 jdbcUtil.rollback()을 try/catch로 감쌈 (컴파일 에러 해결, 원래 예외 보존)
- */
 package model.dao;
 
-import java.sql.SQLException;   // [추가]
+import java.sql.SQLException; 
 
 import org.springframework.stereotype.Repository;
 
 import model.domain.CanceledTicketSchedule;
+import model.domain.enums.ScheduleStatus;
 
 @Repository
 public class CanceledTicketScheduleDAO {
@@ -22,10 +18,11 @@ public class CanceledTicketScheduleDAO {
                 + "(CANCELED_TICKET_SCHEDULE_ID, OPEN_AT, "
                 + "SCHEDULE_STATUS, CREATED_AT, PERFORMANCE_ID) "
                 + "VALUES (SEQ_CANCELED_TICKET_SCHEDULE.NEXTVAL, "
-                + "?, 'P', SYSDATE, ?)";
+                + "?, ?, SYSDATE, ?)";
 
         Object[] params = {
                 schedule.getOpenAt(),
+                ScheduleStatus.PLANNED.getCode(),
                 schedule.getPerformanceId()
         };
 
@@ -39,7 +36,7 @@ public class CanceledTicketScheduleDAO {
             return result;
 
         } catch (Exception e) {
-            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }   // [수정]
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }
             throw new RuntimeException("취소표 재오픈 일정 등록 실패", e);
 
         } finally {

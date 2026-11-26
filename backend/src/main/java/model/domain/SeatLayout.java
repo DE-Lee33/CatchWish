@@ -3,14 +3,14 @@ package model.domain;
 public class SeatLayout {
     private long seatLayoutId;
     private String seatLayoutName;
-    private String isTemplate;
+    private boolean isTemplate;
     private long venueId;
     private long sourceLayoutId; 
     
     public SeatLayout() {
     }
 
-    public SeatLayout(long seatLayoutId, String seatLayoutName, String isTemplate, long venueId, long sourceLayoutId) {
+    public SeatLayout(long seatLayoutId, String seatLayoutName, boolean isTemplate, long venueId, long sourceLayoutId) {
         super();
         this.seatLayoutId = seatLayoutId;
         this.seatLayoutName = seatLayoutName;
@@ -35,11 +35,11 @@ public class SeatLayout {
         this.seatLayoutName = seatLayoutName;
     }
 
-    public String getIsTemplate() {
+    public boolean getIsTemplate() {
         return isTemplate;
     }
 
-    public void setIsTemplate(String isTemplate) {
+    public void setIsTemplate(boolean isTemplate) {
         this.isTemplate = isTemplate;
     }
 
