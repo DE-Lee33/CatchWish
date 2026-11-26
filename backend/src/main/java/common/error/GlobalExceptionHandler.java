@@ -11,6 +11,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -27,7 +28,8 @@ public class GlobalExceptionHandler {
     // 요청이 잘못된 경우 (깨진 JSON, 타입 불일치, 필수 파라미터 누락)
     @ExceptionHandler({ HttpMessageNotReadableException.class,
                         MethodArgumentTypeMismatchException.class,
-                        MissingServletRequestParameterException.class })
+                        MissingServletRequestParameterException.class,
+                        MissingServletRequestPartException.class })
     public ResponseEntity<ApiError> handleBadRequest(Exception e) {
         return respond(ErrorCode.BAD_REQUEST);
     }
