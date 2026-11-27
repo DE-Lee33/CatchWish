@@ -64,7 +64,7 @@ CatchWish/
 │     └─ test/java/          DAO 테스트
 ├─ frontend/                 React + TypeScript (Vite) 화면 (자세한 구조: frontend/README.md)
 ├─ db/                       DB 사용 규칙, 스키마 변경 기록(migrations)
-├─ docs/                     협업 규칙, 상태값 코드표
+├─ docs/                     협업 규칙, 상태값 코드표, API 명세
 └─ .github/                  PR 템플릿
 ```
 
@@ -97,5 +97,6 @@ CatchWish/
 - 노션: [DBP-Project](https://app.notion.com/p/DBP-Project-a931987843da82a6bb9c0141fa42d34f)
 - [docs/CONVENTIONS.md](docs/CONVENTIONS.md) — 브랜치·커밋·PR·코드 규칙
 - [docs/STATUS_CODES.md](docs/STATUS_CODES.md) — 상태값 코드표
+- [docs/API.md](docs/API.md) — 구현된 API 요청·응답 명세, 작성 규칙
 - [db/README.md](db/README.md) — DB 사용 규칙, 스키마 변경 기록 방법
 - [frontend/README.md](frontend/README.md) — 프론트 실행 방법, 폴더 구조, 작업 규칙
