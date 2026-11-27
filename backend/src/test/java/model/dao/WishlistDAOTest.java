@@ -3,6 +3,8 @@ package model.dao;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import java.sql.ResultSet;
 import java.util.List;
@@ -55,7 +57,7 @@ public class WishlistDAOTest {
 
     // 중첩 매핑 확인 (seed의 seed_user1 위시리스트)
     @Test
-    public void testSelectWishlistMapping() throws Exception {
+    public void seed_회원의_위시리스트가_중첩_매핑된다() throws Exception {
         Long memberId = findMemberId("seed_user1");
         Assume.assumeNotNull(memberId);
 
@@ -67,6 +69,22 @@ public class WishlistDAOTest {
         assertNotNull(dto.getWishlist().getWishlistId());
         assertEquals(memberId, dto.getWishlist().getMemberId());
         assertNotNull(dto.getPerformanceTitle());
+        
+        // 정렬: PRIORITY 오름차순, NULL은 맨 뒤
+        boolean seenNull = false;
+        Integer prev = null;
+        for (WishlistResponseDTO r : result) {
+            Integer p = r.getWishlist().getPriority();
+            if (p == null) {
+                seenNull = true;
+            } else {
+                assertFalse("NULL priority 뒤에 값이 올 수 없습니다", seenNull);
+                if (prev != null) {
+                    assertTrue(prev <= p);
+                }
+                prev = p;
+            }
+        }
     }
 
     // 위시리스트 삭제 테스트
@@ -97,7 +115,7 @@ public class WishlistDAOTest {
                 "SELECT MEMBER_ID FROM MEMBER WHERE LOGIN_ID = ?",
                 new Object[] { loginId });
             ResultSet rs = jdbcUtil.executeQuery();
-            if (rs.next()) {
+            if (rs != null && rs.next()) {
                 return rs.getLong(1);
             }
             return null;
