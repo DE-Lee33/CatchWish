@@ -5,11 +5,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Map;
+
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -17,16 +21,40 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import common.auth.LoginMember;
 import common.auth.LoginSession;
+import common.error.ApiException;
+import common.error.ErrorCode;
 import common.error.GlobalExceptionHandler;
+import model.manager.MemberManager;
 
 public class MemberControllerTest {
 	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final FakeMemberManager memberManager = new FakeMemberManager();
 	private MockMvc mockMvc;
+
+	// HTTP 처리만 확인하려고 가입 결과를 고정한 가짜 Manager (검증 규칙은 MemberManagerTest에서 확인)
+	private static class FakeMemberManager extends MemberManager {
+		private String receivedMemberName;
+		private String receivedEmail;
+
+		FakeMemberManager() {
+			super(null);
+		}
+
+		@Override
+		public long create(String loginId, String password, String memberName, String email) {
+			if ("hyunji01".equals(loginId)) {
+				throw new ApiException(ErrorCode.DUPLICATE_LOGIN_ID);
+			}
+			receivedMemberName = memberName;
+			receivedEmail = email;
+			return 101;
+		}
+	}
 
 	@Before
 	public void setUp() {
 		// 로그아웃 후 /me까지 이어서 확인하려고 AuthController도 같이 등록 (로그아웃은 DB를 쓰지 않아 Manager가 없어도 된다)
-		mockMvc = MockMvcBuilders.standaloneSetup(new MemberController(), new AuthController(null))
+		mockMvc = MockMvcBuilders.standaloneSetup(new MemberController(memberManager), new AuthController(null))
 				.setControllerAdvice(new GlobalExceptionHandler())
 				.build();
 	}
@@ -66,5 +94,33 @@ public class MemberControllerTest {
 		mockMvc.perform(post("/api/auth/logout").session(session)).andExpect(status().isNoContent());
 
 		mockMvc.perform(get("/api/members/me").session(session)).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	public void 가입하면_201과_회원번호를_돌려준다() throws Exception {
+		String json = signup("newbie01").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+
+		assertEquals(101L, objectMapper.readTree(json).get("memberId").asLong());
+		assertEquals("새회원", memberManager.receivedMemberName);
+		assertEquals("newbie@test.com", memberManager.receivedEmail);
+	}
+
+	@Test
+	public void 가입_오류는_Manager의_오류코드로_응답한다() throws Exception {
+		String json = signup("hyunji01").andExpect(status().isConflict()).andReturn().getResponse().getContentAsString();
+
+		assertEquals("DUPLICATE_LOGIN_ID", objectMapper.readTree(json).get("code").asText());
+	}
+
+	@Test
+	public void 가입_요청_본문이_없으면_400() throws Exception {
+		mockMvc.perform(post("/api/members").contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isBadRequest());
+	}
+
+	private ResultActions signup(String loginId) throws Exception {
+		String json = objectMapper.writeValueAsString(Map.of("loginId", loginId, "password", "password1",
+				"memberName", "새회원", "email", "newbie@test.com"));
+		return mockMvc.perform(post("/api/members").contentType(MediaType.APPLICATION_JSON).content(json));
 	}
 }
