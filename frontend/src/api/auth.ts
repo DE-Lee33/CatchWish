@@ -18,3 +18,7 @@ export async function login(loginId: string, password: string): Promise<LoginMem
   const response = await client.post<LoginMember>('/auth/login', { loginId, password })
   return response.data
 }
+
+export async function logout(): Promise<void> {
+  await client.post('/auth/logout')
+}
