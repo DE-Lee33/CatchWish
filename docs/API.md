@@ -30,6 +30,10 @@
 | M2 | GET | `/api/members/me` | 내 로그인 정보 | 로그인 | 현지 |
 | M1 | POST | `/api/members` | 회원가입 | - | 현지 |
 | M1 | GET | `/api/members/check-id` | 아이디 중복확인 | - | 현지 |
+| M12 | POST | `/api/wishlist` | 위시리스트 등록 | 로그인 | 다은 |
+| M13 | GET | `/api/wishlist` | 위시리스트 조회 | 로그인 | 다은 |
+| M13 | DELETE | `/api/wishlist/{id}` | 위시리스트 삭제 | 로그인 | 다은 |
+| M13 | PUT | `/api/wishlist/{id}/priority` | 우선순위 변경 | 로그인 | 다은 |
 
 ---
 
@@ -64,6 +68,29 @@
 - 성공: `200` `{ "available": boolean }` 가입 가능하면 `true`
 - 오류: `400 BAD_REQUEST` `loginId` 없음·형식 오류
 
+## WishlistController
+
+### `POST /api/wishlist` 위시리스트 등록
+같은 공연·구역 조합은 한 번만 등록할 수 있습니다.
+- 요청: `{ "performanceId": number, "sectorId": number | null, "priority": number | null }` performanceId 필수 · sectorId, priority 선택 · priority는 1 이상
+- 성공: `201` [WishlistItem](#wishlistitem)
+- 오류: `400 BAD_REQUEST` 공연 없음·우선순위 1 미만 · `404 NOT_FOUND` 없는 공연·구역 · `409 CONFLICT` 이미 등록된 공연·구역
+
+### `GET /api/wishlist` 위시리스트 조회
+우선순위 오름차순(우선순위 없는 항목은 뒤), 같으면 최근 등록순입니다.
+- 요청: 없음
+- 성공: `200` [WishlistItem](#wishlistitem) 배열 (0건이면 빈 배열)
+
+### `DELETE /api/wishlist/{id}` 위시리스트 삭제
+- 경로·쿼리: `id` number 필수 (위시리스트 ID)
+- 성공: `204`
+- 오류: `404 NOT_FOUND` 없는 항목 또는 본인 항목 아님
+
+### `PUT /api/wishlist/{id}/priority` 우선순위 변경
+- 경로·쿼리: `id` number 필수 (위시리스트 ID)
+- 요청: `{ "priority": number }` 필수 · 1 이상
+- 성공: `200` 변경 후 [WishlistItem](#wishlistitem) 배열
+- 오류: `400 BAD_REQUEST` 우선순위 없음·1 미만 · `404 NOT_FOUND` 없는 항목 또는 본인 항목 아님
 ---
 
 ## 응답 객체
@@ -76,6 +103,23 @@
   memberName: string      // 중복 가능, 표시용
   role: "USER" | "ADMIN"
   admin: boolean          // role이 ADMIN이면 true
+}
+```
+
+### WishlistItem
+```ts
+{
+  wishlist: {
+    wishlistId: number
+    memberId: number
+    performanceId: number
+    sectorId: number | null
+    priority: number | null
+    createdAt: number       // 밀리초 타임스탬프
+  }
+  performanceTitle: string
+  performanceDate: number | null   // 밀리초 타임스탬프
+  sectorName: string | null
 }
 ```
 
