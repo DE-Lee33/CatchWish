@@ -6,4 +6,10 @@ const client = axios.create({
   timeout: 10000,
 })
 
+// 서버 GlobalExceptionHandler의 오류 응답 본문 (common.error.ApiError)
+export type ApiError = {
+  code: string
+  message: string
+}
+
 export default client
