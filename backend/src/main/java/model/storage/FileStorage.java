@@ -66,7 +66,7 @@ public class FileStorage {
             return;
         }
         if (f.getSize() > max)
-            throw new ApiException(ErrorCode.BAD_REQUEST, label + " 파일은 " + (max / 1024 / 1024) + "MB 이하여야 합니다.");
+            throw new ApiException(ErrorCode.FILE_TOO_LARGE, label + " 파일은 " + (max / 1024 / 1024) + "MB 이하여야 합니다.");   // BAD_REQUEST → FILE_TOO_LARGE
         if (!allowed.contains(extensionOf(f.getOriginalFilename())))
             throw new ApiException(ErrorCode.BAD_REQUEST, label + " 파일 형식이 올바르지 않습니다.");
     }

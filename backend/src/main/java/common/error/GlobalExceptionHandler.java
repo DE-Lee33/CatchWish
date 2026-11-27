@@ -11,9 +11,11 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.multipart.MultipartException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -29,9 +31,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({ HttpMessageNotReadableException.class,
                         MethodArgumentTypeMismatchException.class,
                         MissingServletRequestParameterException.class,
-                        MissingServletRequestPartException.class })
+                        MissingServletRequestPartException.class,
+                        MultipartException.class })
     public ResponseEntity<ApiError> handleBadRequest(Exception e) {
         return respond(ErrorCode.BAD_REQUEST);
+    }
+    
+    // 멀티파트 한도 초과 (AppInitializer의 파일당 10MB / 요청 전체 20MB). 컨트롤러 진입 전에 발생
+    // MultipartException의 하위 타입이라 위 핸들러보다 이쪽이 우선 선택된다
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleTooLarge(MaxUploadSizeExceededException e) {
+        return respond(ErrorCode.FILE_TOO_LARGE);
     }
 
     // 없는 주소

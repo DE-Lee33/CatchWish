@@ -16,6 +16,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 
 import common.auth.LoginCheckInterceptor;
@@ -144,5 +145,15 @@ public class PerformanceControllerTest {
                 .andExpect(content().string(containsString("공연명은 1~200자여야 합니다.")))
                 .andReturn();
         print("Manager 오류 → 400", "Manager가 BAD_REQUEST 던지도록 설정", r, "code·message가 {code, message} 형식으로 내려감");
+    }
+    
+    @Test
+    public void 용량_초과_예외면_413_FILE_TOO_LARGE() throws Exception {
+        manager.toThrow = new MaxUploadSizeExceededException(10 * 1024 * 1024);
+        MvcResult r = mockMvc.perform(multipart("/api/performances").file(data()).file(proof()).session(login()))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(content().string(containsString("\"code\":\"FILE_TOO_LARGE\"")))
+                .andReturn();
+        print("용량 초과 → 413", "Manager가 MaxUploadSizeExceededException 던지도록 설정", r, "code=FILE_TOO_LARGE");
     }
 }
