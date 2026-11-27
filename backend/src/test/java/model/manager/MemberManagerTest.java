@@ -1,7 +1,9 @@
 package model.manager;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import java.sql.SQLException;
 
@@ -92,6 +94,18 @@ public class MemberManagerTest {
 	@Test
 	public void 해시값을_비밀번호로_넣으면_LOGIN_FAILED() {
 		assertLoginFailed("hyunji01", PasswordHasher.hash("test1234"));
+	}
+
+	@Test
+	public void 중복확인은_사용_중인_아이디면_true() throws Exception {
+		assertTrue(memberManager.existsLoginId("hyunji01"));
+		assertFalse(memberManager.existsLoginId("newbie01"));
+	}
+
+	@Test
+	public void 중복확인_아이디_형식이_틀리면_BAD_REQUEST() {
+		assertErrorCode(ErrorCode.BAD_REQUEST, () -> memberManager.existsLoginId("ab"));
+		assertErrorCode(ErrorCode.BAD_REQUEST, () -> memberManager.existsLoginId(null));
 	}
 
 	@Test

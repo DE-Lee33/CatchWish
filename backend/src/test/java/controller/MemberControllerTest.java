@@ -49,6 +49,11 @@ public class MemberControllerTest {
 			receivedEmail = email;
 			return 101;
 		}
+
+		@Override
+		public boolean existsLoginId(String loginId) {
+			return "hyunji01".equals(loginId);
+		}
 	}
 
 	@Before
@@ -122,5 +127,23 @@ public class MemberControllerTest {
 		String json = objectMapper.writeValueAsString(Map.of("loginId", loginId, "password", "password1",
 				"memberName", "새회원", "email", "newbie@test.com"));
 		return mockMvc.perform(post("/api/members").contentType(MediaType.APPLICATION_JSON).content(json));
+	}
+
+	@Test
+	public void 중복확인은_사용_가능_여부를_available로_응답한다() throws Exception {
+		assertEquals(true, checkLoginId("newbie01").get("available").asBoolean());
+		assertEquals(false, checkLoginId("hyunji01").get("available").asBoolean());
+	}
+
+	@Test
+	public void 중복확인에_loginId가_없으면_400() throws Exception {
+		mockMvc.perform(get("/api/members/check-id")).andExpect(status().isBadRequest());
+	}
+
+	private JsonNode checkLoginId(String loginId) throws Exception {
+		String json = mockMvc.perform(get("/api/members/check-id").param("loginId", loginId))
+				.andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString();
+		return objectMapper.readTree(json);
 	}
 }

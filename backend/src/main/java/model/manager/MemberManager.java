@@ -13,6 +13,8 @@ import model.domain.Member;
 public class MemberManager {
 	// Oracle ORA-00001: UNIQUE 제약 위반
 	private static final int ORACLE_UNIQUE_VIOLATION = 1;
+	// 중복확인과 가입이 같은 규칙을 쓰도록 한 곳에 둔다
+	private static final String LOGIN_ID_PATTERN = "[A-Za-z0-9]{4,20}";
 
 	private final MemberDAO memberDAO;
 
@@ -29,9 +31,17 @@ public class MemberManager {
 		return member;
 	}
 
+	// 형식이 틀린 아이디는 어차피 가입할 수 없으므로 "사용 가능"이라 답하지 않고 BAD_REQUEST
+	public boolean existsLoginId(String loginId) throws Exception {
+		if (!matches(loginId, LOGIN_ID_PATTERN)) {
+			throw new ApiException(ErrorCode.BAD_REQUEST);
+		}
+		return memberDAO.existsLoginId(loginId);
+	}
+
 	public long create(String loginId, String password, String memberName, String email) throws Exception {
 		// 프론트 검사는 Postman 등으로 건너뛸 수 있어 서버에서 다시 검사한다
-		if (!matches(loginId, "[A-Za-z0-9]{4,20}") || password == null || password.length() < 8
+		if (!matches(loginId, LOGIN_ID_PATTERN) || password == null || password.length() < 8
 				|| memberName == null || memberName.isBlank() || !matches(email, "[^@\\s]+@[^@\\s]+\\.[^@\\s]+")) {
 			throw new ApiException(ErrorCode.BAD_REQUEST);
 		}

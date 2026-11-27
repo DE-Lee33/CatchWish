@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,6 +32,12 @@ public class MemberController {
 	public Map<String, Long> register(@RequestBody SignupRequest body) throws Exception {
 		long memberId = memberManager.create(body.loginId(), body.password(), body.memberName(), body.email());
 		return Map.of("memberId", memberId);
+	}
+
+	// 가입 버튼 전에 미리 알려 주는 용도일 뿐 보장은 아니다. 가입할 때 create가 다시 확인한다
+	@GetMapping("/check-id")
+	public Map<String, Boolean> checkLoginId(@RequestParam("loginId") String loginId) throws Exception {
+		return Map.of("available", !memberManager.existsLoginId(loginId));
 	}
 
 	// 새로고침하면 화면의 로그인 상태가 사라지므로 앱이 켜질 때 이걸 불러 복원한다

@@ -29,6 +29,7 @@
 | M2 | POST | `/api/auth/logout` | 로그아웃 | - | 현지 |
 | M2 | GET | `/api/members/me` | 내 로그인 정보 | 로그인 | 현지 |
 | M1 | POST | `/api/members` | 회원가입 | - | 현지 |
+| M1 | GET | `/api/members/check-id` | 아이디 중복확인 | - | 현지 |
 
 ---
 
@@ -56,6 +57,12 @@
   - `loginId` 영문·숫자 4~20자 · `password` 8자 이상 · `memberName` 공백만 불가 · `email` 형식만 검사
 - 성공: `201` `{ "memberId": number }`
 - 오류: `400 BAD_REQUEST` 빈 값·형식 오류 · `409 DUPLICATE_LOGIN_ID` 아이디 중복 · `409 DUPLICATE_EMAIL` 이메일 중복 (동시 가입으로 DB에서 막혀도 같은 응답)
+
+### `GET /api/members/check-id` 아이디 중복확인
+가입 전 안내용입니다. `true`여도 가입 순간에 다른 사람이 먼저 가져가면 가입이 `409 DUPLICATE_LOGIN_ID`로 실패할 수 있습니다.
+- 경로·쿼리: `loginId` string 필수 (영문·숫자 4~20자)
+- 성공: `200` `{ "available": boolean }` 가입 가능하면 `true`
+- 오류: `400 BAD_REQUEST` `loginId` 없음·형식 오류
 
 ---
 
