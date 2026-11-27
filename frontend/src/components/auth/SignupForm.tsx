@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { toApiError } from '../../api/client.ts'
-import { signup } from '../../api/members.ts'
+import { checkLoginId, signup } from '../../api/members.ts'
 
 type Field = 'loginId' | 'memberName' | 'email' | 'password' | 'passwordConfirm'
 type Values = Record<Field, string>
@@ -19,6 +19,7 @@ const FIELDS: { name: Field; label: string; type: string; placeholder: string; a
 // 서버 MemberManager와 같은 규칙 (DECISIONS "입력 규칙"). 여기는 빨리 알려 주는 용도이고 최종 검사는 서버가 한다
 const LOGIN_ID_PATTERN = /^[A-Za-z0-9]{4,20}$/
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+const LOGIN_ID_FORMAT_ERROR = '아이디는 영문·숫자 4~20자로 입력해주세요.'
 
 // 중복 오류는 폼 아래가 아니라 해당 칸 아래에 띄운다
 const FIELD_ERRORS: Record<string, [Field, string]> = {
@@ -28,7 +29,7 @@ const FIELD_ERRORS: Record<string, [Field, string]> = {
 
 function validate(values: Values): FieldErrors {
   const errors: FieldErrors = {}
-  if (!LOGIN_ID_PATTERN.test(values.loginId)) errors.loginId = '아이디는 영문·숫자 4~20자로 입력해주세요.'
+  if (!LOGIN_ID_PATTERN.test(values.loginId)) errors.loginId = LOGIN_ID_FORMAT_ERROR
   if (!values.memberName.trim()) errors.memberName = '이름을 입력해주세요.'
   if (!EMAIL_PATTERN.test(values.email)) errors.email = '이메일 형식이 올바르지 않습니다.'
   if (values.password.length < 8) errors.password = '비밀번호는 8자 이상 입력해주세요.'
@@ -46,8 +47,27 @@ function SignupForm() {
     passwordConfirm: '',
   })
   const [errors, setErrors] = useState<FieldErrors>({})
+  // 확인한 아이디를 저장해 두고 지금 입력값과 비교한다. 아이디를 고치면 자동으로 "확인 안 됨"이 된다
+  const [checkedLoginId, setCheckedLoginId] = useState<string | null>(null)
+  const loginIdChecked = checkedLoginId === values.loginId
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // 노션 MVC 표2 M1: 사용 가능 → 가입 버튼 활성화 / 사용 중 → "이미 사용 중인 아이디"
+  async function handleCheckLoginId() {
+    const { loginId } = values
+    if (!LOGIN_ID_PATTERN.test(loginId)) {
+      setErrors({ ...errors, loginId: LOGIN_ID_FORMAT_ERROR })
+      return
+    }
+    try {
+      const available = await checkLoginId(loginId)
+      setCheckedLoginId(available ? loginId : null)
+      setErrors({ ...errors, loginId: available ? undefined : FIELD_ERRORS.DUPLICATE_LOGIN_ID[1] })
+    } catch (caught) {
+      setErrors({ ...errors, loginId: toApiError(caught).message })
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -65,6 +85,8 @@ function SignupForm() {
       // 실패해도 values는 그대로라 입력값이 유지된다
       const { code, message } = toApiError(caught)
       const fieldError = FIELD_ERRORS[code]
+      // 확인 뒤 남이 먼저 가입한 경우라 다시 확인받는다
+      if (code === 'DUPLICATE_LOGIN_ID') setCheckedLoginId(null)
       if (fieldError) setErrors({ [fieldError[0]]: fieldError[1] })
       else setFormError(message)
     } finally {
@@ -88,11 +110,18 @@ function SignupForm() {
               aria-invalid={Boolean(errors[field.name])}
             />
           </label>
+          {field.name === 'loginId' && (
+            <button type="button" onClick={handleCheckLoginId} disabled={loginIdChecked}>
+              중복확인
+            </button>
+          )}
           {errors[field.name] && <p role="alert">{errors[field.name]}</p>}
+          {field.name === 'loginId' && loginIdChecked && <p>사용 가능한 아이디입니다.</p>}
         </div>
       ))}
       {formError && <p role="alert">{formError}</p>}
-      <button type="submit" disabled={submitting}>
+      {!loginIdChecked && <p>아이디 중복확인 후 가입할 수 있습니다.</p>}
+      <button type="submit" disabled={submitting || !loginIdChecked}>
         {submitting ? '가입 중...' : '가입하기'}
       </button>
     </form>
