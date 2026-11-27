@@ -1,20 +1,12 @@
-import axios from 'axios'
 import { useState, type FormEvent } from 'react'
 import { login } from '../../api/auth.ts'
-import type { ApiError } from '../../api/client.ts'
+import { toApiError } from '../../api/client.ts'
 import { useAuth } from './AuthContext.ts'
 
 // 화면 문구를 서버 수정 없이 바꾸려고 code별로 둔다. 표에 없는 code는 서버 message를 쓴다
 const ERROR_MESSAGES: Record<string, string> = {
   LOGIN_FAILED: '아이디 또는 비밀번호가 올바르지 않습니다.',
   BAD_REQUEST: '아이디와 비밀번호를 입력해주세요.',
-}
-
-function toErrorMessage(error: unknown): string {
-  const body = axios.isAxiosError<ApiError>(error) ? error.response?.data : undefined
-  // Tomcat이 꺼져 있으면 Vite 프록시가 본문 없는 오류를 돌려줘 code가 없다
-  if (!body?.code) return '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.'
-  return ERROR_MESSAGES[body.code] ?? body.message
 }
 
 function LoginForm() {
@@ -32,7 +24,8 @@ function LoginForm() {
       // 이동은 여기서 하지 않는다. member가 바뀌면 LoginPage가 redirect 주소로 보낸다
       setMember(await login(loginId, password))
     } catch (caught) {
-      setError(toErrorMessage(caught))
+      const { code, message } = toApiError(caught)
+      setError(ERROR_MESSAGES[code] ?? message)
     } finally {
       setSubmitting(false)
     }
