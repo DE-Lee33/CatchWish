@@ -23,6 +23,8 @@
 
 작업 중 `dev`가 바뀌었으면, 내 브랜치에 `dev`를 먼저 merge하고 충돌을 해결한 뒤 PR을 올립니다.
 
+API를 추가·변경했으면 같은 PR에서 [API.md](API.md)도 고칩니다 (PR 템플릿 체크박스).
+
 ```bash
 git checkout dev
 git pull
