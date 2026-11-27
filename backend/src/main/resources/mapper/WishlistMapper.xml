@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="model.mapper.WishlistMapper">
+
+  <resultMap id="wishlistResponseMap" type="model.dto.WishlistResponseDTO">
+    <result property="performanceTitle" column="PERFORMANCE_NAME"/>
+    <result property="performanceDate"  column="SHOW_AT"/>
+    <result property="sectorName"       column="SECTOR_NAME"/>
+    <association property="wishlist" javaType="model.domain.Wishlist">
+      <id     property="wishlistId"    column="WISHLIST_ID"/>
+      <result property="memberId"      column="MEMBER_ID"/>
+      <result property="performanceId" column="PERFORMANCE_ID"/>
+      <result property="sectorId"      column="SECTOR_ID"/>
+      <result property="priority"      column="PRIORITY"/>
+      <result property="createdAt"     column="CREATED_AT"/>
+    </association>
+  </resultMap>
+
+  <select id="selectWishlistByMemberId" resultMap="wishlistResponseMap">
+    SELECT W.WISHLIST_ID, W.MEMBER_ID,
+           W.PERFORMANCE_ID, W.SECTOR_ID, W.PRIORITY,
+           W.CREATED_AT, P.PERFORMANCE_NAME,
+           P.SHOW_AT, S.SECTOR_NAME
+      FROM WISHLIST W
+      JOIN PERFORMANCE P
+        ON W.PERFORMANCE_ID = P.PERFORMANCE_ID
+      LEFT JOIN SECTOR S
+        ON W.SECTOR_ID = S.SECTOR_ID
+     WHERE W.MEMBER_ID = #{memberId}
+     ORDER BY W.PRIORITY ASC NULLS LAST,
+              W.CREATED_AT DESC
+  </select>
+</mapper>
