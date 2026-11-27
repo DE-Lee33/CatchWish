@@ -1,0 +1,9 @@
+-- 이미 반영됨, 재실행 금지
+-- M22: 예매 생성 및 홀드
+-- BOOKING 홀드 만료 시각 컬럼 및 조회 인덱스 추가
+
+ALTER TABLE BOOKING
+ADD (HOLD_EXPIRES_AT DATE);
+
+CREATE INDEX BOOKING_HOLD_IDX
+ON BOOKING (BOOKING_STATUS, HOLD_EXPIRES_AT);
