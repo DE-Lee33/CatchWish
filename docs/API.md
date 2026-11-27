@@ -28,6 +28,7 @@
 | M2 | POST | `/api/auth/login` | 로그인 | - | 현지 |
 | M2 | POST | `/api/auth/logout` | 로그아웃 | - | 현지 |
 | M2 | GET | `/api/members/me` | 내 로그인 정보 | 로그인 | 현지 |
+| M4 | GET | `/api/performances` | 공연 목록 (장르, 페이지) | - | 현지 |
 
 ---
 
@@ -49,6 +50,14 @@
 - 성공: `200` [LoginMember](#loginmember)
 - 오류: `401 AUTH_REQUIRED` 로그인 안 함·세션 만료(30분)
 
+## PerformanceController
+
+### `GET /api/performances` 공연 목록
+승인됐고 공연 일시가 지나지 않은 공연만, 공연 일시가 빠른 순으로 한 페이지에 10개씩 줍니다.
+- 경로·쿼리: `genre` string 선택(없거나 비면 전체, 예: `CONCERT`) · `page` number 선택(기본 1)
+- 성공: `200` `{ performanceList: Performance[], totalCount: number }`. totalCount는 이 장르 전체 개수(페이지 수 = ceil(totalCount / 10)). 마지막 페이지를 넘기면 빈 배열
+- 오류: `400 BAD_REQUEST` page가 숫자가 아니거나 1보다 작을 때
+
 ---
 
 ## 응답 객체
@@ -61,6 +70,34 @@
   memberName: string      // 중복 가능, 표시용
   role: "USER" | "ADMIN"
   admin: boolean          // role이 ADMIN이면 true
+}
+```
+
+### Performance
+날짜는 Jackson 기본값대로 epoch 밀리초 숫자입니다 (`new Date(showAt)`).
+```ts
+{
+  performanceId: number
+  registrantId: number         // 공연 등록자 MEMBER_ID
+  managerId: number | null     // 심사한 관리자
+  venueTemplateId: number | null
+  performanceName: string
+  genre: string                // 예: "CONCERT", "MUSICAL"
+  castInfo: string
+  description: string
+  posterUrl: string | null
+  runningTime: number          // 분
+  showAt: number               // 공연 일시
+  bookingOpenAt: number        // 예매 오픈 시각
+  cancelDeadlineAt: number     // 취소 가능 기한
+  maxTicketsPerMember: number
+  venueName: string
+  venueAddress: string
+  approvalStatus: "P" | "A" | "R"   // 심사중 · 승인 · 반려
+  approved: boolean            // approvalStatus가 "A"면 true
+  rejectReason: string | null
+  reviewedAt: number | null
+  createdAt: number
 }
 ```
 

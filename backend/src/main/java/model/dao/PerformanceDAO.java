@@ -32,27 +32,29 @@ public class PerformanceDAO {
     private static final String STATUS_PENDING = ApprovalStatus.PENDING.getCode();
     private static final String STATUS_REJECTED = ApprovalStatus.REJECTED.getCode();
     private static final String SEAT_AVAILABLE = SeatStatus.AVAILABLE.getCode();
+    // 목록·검색은 예매할 수 있는 공연만 보여 주므로 승인됐고 아직 공연 전인 것만
+    private static final String LISTABLE = "APPROVAL_STATUS = ? AND SHOW_AT >= SYSDATE ";
 
-    // ===================== M4·M5 목록·검색 (승인된 공연만) =====================
+    // ===================== M4·M5 목록·검색 (승인됐고 공연 전인 것만) =====================
 
     /**
-     * M4 승인된 공연 목록 (공연 일시 순, 페이징)
+     * M4 승인됐고 공연 전인 공연 목록 (공연 일시 순, 페이징)
      * @param genre 장르 (null 또는 빈 문자열이면 전체)
      * @param page  1부터 시작
      * @param size  한 페이지 개수
      */
     public List<Performance> findApprovedList(String genre, int page, int size) throws Exception {
         List<Object> params = new ArrayList<>();
-        StringBuilder where = new StringBuilder("WHERE APPROVAL_STATUS = ? ");
+        StringBuilder where = new StringBuilder("WHERE " + LISTABLE);
         params.add(STATUS_APPROVED);
         appendGenre(where, params, genre);
         return findPage(where.toString(), params, page, size);
     }
 
-    /** M4 승인된 공연 수 (페이지 수 계산용) */
+    /** M4 승인됐고 공연 전인 공연 수 (페이지 수 계산용) */
     public int countApproved(String genre) throws Exception {
         List<Object> params = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM PERFORMANCE WHERE APPROVAL_STATUS = ? ");
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM PERFORMANCE WHERE " + LISTABLE);
         params.add(STATUS_APPROVED);
         appendGenre(sql, params, genre);
         return queryCount(sql.toString(), params.toArray());
@@ -378,10 +380,10 @@ public class PerformanceDAO {
         }
     }
 
-    /** 검색 조건: 승인된 공연 중 공연명 또는 출연진에 검색어 포함 (+ 장르) */
+    /** 검색 조건: 승인됐고 공연 전인 공연 중 공연명 또는 출연진에 검색어 포함 (+ 장르) */
     private void appendSearchCondition(StringBuilder sql, List<Object> params, String keyword, String genre) {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
-        sql.append("WHERE APPROVAL_STATUS = ? AND (PERFORMANCE_NAME LIKE ? OR CAST_INFO LIKE ?) ");
+        sql.append("WHERE " + LISTABLE + "AND (PERFORMANCE_NAME LIKE ? OR CAST_INFO LIKE ?) ");
         params.add(STATUS_APPROVED);
         params.add(like);
         params.add(like);
