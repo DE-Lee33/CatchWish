@@ -15,7 +15,7 @@ function AuthProvider({ children }: AuthProviderProps) {
     fetchMe().then(setMember, () => setMember(null))
   }, [])
 
-  return <AuthContext value={member}>{children}</AuthContext>
+  return <AuthContext value={{ member, setMember }}>{children}</AuthContext>
 }
 
 export default AuthProvider

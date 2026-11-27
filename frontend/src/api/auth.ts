@@ -13,3 +13,8 @@ export async function fetchMe(): Promise<LoginMember> {
   const response = await client.get<LoginMember>('/members/me')
   return response.data
 }
+
+export async function login(loginId: string, password: string): Promise<LoginMember> {
+  const response = await client.post<LoginMember>('/auth/login', { loginId, password })
+  return response.data
+}
