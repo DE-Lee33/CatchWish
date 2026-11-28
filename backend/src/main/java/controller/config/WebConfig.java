@@ -19,7 +19,7 @@ import common.auth.LoginCheckInterceptor;
  */
 @Configuration
 @EnableWebMvc
-@ComponentScan(basePackages = { "controller", "model.manager", "model.dao", "common" })
+@ComponentScan(basePackages = { "controller", "model.manager", "model.dao", "model.storage", "common" })
 public class WebConfig implements WebMvcConfigurer {
     
     @Override

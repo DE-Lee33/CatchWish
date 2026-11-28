@@ -21,6 +21,8 @@
 
 깨진 JSON(`400 BAD_REQUEST`), 서버 오류(`500 INTERNAL_ERROR`)처럼 모든 API에 공통인 오류는 상세에 적지 않습니다. 전체 목록: `common/error/ErrorCode.java`
 
+업로드 용량 초과(`413 FILE_TOO_LARGE`)는 파일을 받는 API에 해당합니다. 파일당 10MB / 요청 전체 20MB가 서버 한도이고, API별 세부 한도는 상세에 적습니다.
+
 ## 목록
 
 | ID | Method | URI | 설명 | 로그인 | 담당 |
@@ -35,6 +37,8 @@
 | M13 | DELETE | `/api/wishlist/{id}` | 위시리스트 삭제 | 로그인 | 다은 |
 | M13 | PUT | `/api/wishlist/{id}/priority` | 우선순위 변경 | 로그인 | 다은 |
 | M13 | PUT | `/api/wishlist/order` | 우선순위 일괄 변경 | 로그인 | 다은 |
+| M9 | POST | `/api/performances` | 공연 등록 (좌석 배치 M20 포함, 심사중으로 생성) | 로그인 | 재원 |
+
 
 ---
 
@@ -99,6 +103,17 @@
 - 성공: `200` 변경 후 [WishlistItem](#wishlistitem) 배열
 - 오류: `400 BAD_REQUEST` 빈 목록·중복 ID · `404 NOT_FOUND` 항목 없음 · `409 CONFLICT` 보낸 ID 목록이 현재 내 위시리스트와 다름(새로고침 필요)
 
+## PerformanceController
+
+### `POST /api/performances` 공연 등록
+공연 등록(M9)과 좌석 배치(M20)를 **한 번의 요청, 한 트랜잭션**으로 저장합니다. 공연은 심사중(`P`) 상태로 생성되고, 중간에 실패하면 DB는 롤백되고 이미 저장된 파일도 삭제됩니다. 좌석 상태는 항상 `AVAILABLE`로 서버가 고정합니다.
+- 요청: `multipart/form-data` (파트 3개)
+  - `data` 필수 · 공연 정보 JSON, **파트 Content-Type을 `application/json`으로 지정** · [PerformanceRegisterRequest](#performanceregisterrequest)
+  - `proof` 필수 · 대관 증빙 · pdf/jpg/jpeg/png · 10MB 이하
+  - `poster` 선택 · 포스터 · jpg/jpeg/png/webp · 5MB 이하
+- 성공: `201` `{ "performanceId": number }`
+- 오류: `401 AUTH_REQUIRED` 로그인 안 함 · `400 BAD_REQUEST` 필수 파트(`data`, `proof`) 누락, 입력값 검증 실패(message에 사유), 허용되지 않는 파일 형식 · `413 FILE_TOO_LARGE` 증빙 10MB / 포스터 5MB 초과, 요청 전체 20MB 초과 · `415 UNSUPPORTED_MEDIA_TYPE` multipart가 아닌 요청 또는 `data` 파트가 JSON이 아님
+
 ---
 
 ## 응답 객체
@@ -113,7 +128,6 @@
   admin: boolean          // role이 ADMIN이면 true
 }
 ```
-
 ### WishlistItem
 ```ts
 {
@@ -130,6 +144,56 @@
   sectorName: string | null
 }
 ```
+## 요청 객체
+
+### PerformanceRegisterRequest
+```ts
+{
+  venueTemplateId: number | null   // 템플릿 공연장을 불러왔으면 venue id, 직접 그렸으면 null
+  performanceName: string          // 1~200자
+  genre: string                    // 필수
+  castInfo: string
+  description: string
+  runningTime: number              // 분, 1~9999
+  maxTicketsPerMember: number      // 1~99
+  showAt: string                   // 공연 일시. ISO 8601 + 오프셋, 예: "2026-12-25T19:00:00+09:00" (오프셋 없으면 UTC로 해석됨)
+  bookingOpenAt: string            // showAt과 같은 형식, showAt보다 앞서야 함
+  cancelDeadlineAt: string         // showAt과 같은 형식, showAt 이전(같아도 됨)
+  venueName: string                // 필수, 100자 이하
+  venueAddress: string | null      // 255자 이하
+  grades: [                        // 1개 이상
+    {
+      gradeKey: string             // 요청 안에서만 쓰는 임시 키, 등급마다 고유
+      gradeName: string            // 1~20자
+      price: number                // 0~99,999,999
+    }
+  ]
+  rental: {
+    rentalStartAt: string          // showAt과 같은 형식, 대관 기간이 showAt을 포함해야 함
+    rentalEndAt: string            // showAt과 같은 형식
+  }
+  layout: {
+    seatLayoutName: string         // 1~50자
+    sourceLayoutId: number | null  // 템플릿에서 시작했으면 원본 layout id (이때 venueTemplateId 필수)
+    shareAsTemplate: boolean       // 이 배치를 템플릿으로 공유할지
+    sectors: [                     // 1개 이상
+      {
+        sectorName: string         // 1~50자
+        gradeKey: string           // grades의 gradeKey 중 하나 (없으면 400)
+        seats: [                   // 1개 이상
+          {
+            rowNum: string         // 1~10자
+            columnNum: number
+            seatNumber: string     // 1~20자
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+- 같은 배치 안에서 `(rowNum, columnNum)`은 구역이 달라도 중복될 수 없습니다.
+- 등급(`grades`)을 먼저 정의해야 구역이 `gradeKey`로 참조할 수 있습니다.
 
 ---
 
