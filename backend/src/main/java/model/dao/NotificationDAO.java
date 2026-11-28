@@ -10,14 +10,31 @@ import org.springframework.stereotype.Repository;
 import model.domain.Notification;
 import model.domain.Wishlist;
 import model.domain.enums.SendStatus;
+import model.domain.enums.BookingStatus;
+import model.domain.enums.SeatStatus;
 
 @Repository
 public class NotificationDAO {
     
-    // 알림 생성
+    // 알림만 단독으로 저장할 때 사용한다.
     public int insertNotification(Notification notification) {
         JDBCUtil jdbcUtil = new JDBCUtil();
 
+        try {
+            int result = insertNotification(jdbcUtil, notification);
+            jdbcUtil.commit();
+            return result;
+        } catch (Exception e) {
+            try { jdbcUtil.rollback(); } catch (SQLException ignore) { }
+            throw new RuntimeException("알림 생성 실패", e);
+        } finally {
+            jdbcUtil.close();
+        }
+    }
+
+    // 일정과 알림을 함께 저장할 때 사용한다.
+    public int insertNotification(JDBCUtil jdbcUtil, Notification notification)
+            throws Exception {
         String sql = "INSERT INTO NOTIFICATION "
                 + "(NOTIFICATION_ID, NOTIFICATION_TYPE, SEND_STATUS, "
                 + "CREATED_AT, MEMBER_ID, IS_READ, WISHLIST_ID, "
@@ -32,26 +49,25 @@ public class NotificationDAO {
                 notification.getCanceledTicketScheduleId()
         };
 
+        jdbcUtil.setSqlAndParameters(sql, params);
+        return jdbcUtil.executeUpdate();
+    }
+
+    // 취소표 일정에 해당하는 위시리스트 알림 대상 조회
+    public List<Wishlist> selectWishlistTargets(Long scheduleId, Long sectorId) {
+        JDBCUtil jdbcUtil = new JDBCUtil();
+
         try {
-            jdbcUtil.setSqlAndParameters(sql, params);
-            int result = jdbcUtil.executeUpdate();
-            jdbcUtil.commit();
-            return result;
-
+            return selectWishlistTargets(jdbcUtil, scheduleId, sectorId);
         } catch (Exception e) {
-            try { jdbcUtil.rollback(); } catch (Exception ignore) { }   
-            throw new RuntimeException("알림 생성 실패", e);
-
+            throw new RuntimeException("위시리스트 알림 대상 조회 실패", e);
         } finally {
             jdbcUtil.close();
         }
     }
 
-    // 취소표 일정에 해당하는 위시리스트 알림 대상 조회
     public List<Wishlist> selectWishlistTargets(
-            Long scheduleId, Long sectorId) {
-
-        JDBCUtil jdbcUtil = new JDBCUtil();
+            JDBCUtil jdbcUtil, Long scheduleId, Long sectorId) throws Exception {
         List<Wishlist> wishlists = new ArrayList<>();
 
         String sql = "SELECT w.WISHLIST_ID, w.MEMBER_ID, "
@@ -62,12 +78,9 @@ public class NotificationDAO {
                 + "WHERE c.CANCELED_TICKET_SCHEDULE_ID = ? "
                 + "AND (w.SECTOR_ID = ? OR w.SECTOR_ID IS NULL)";
 
-        try {
-            jdbcUtil.setSqlAndParameters(
-                    sql, new Object[]{scheduleId, sectorId});
+        jdbcUtil.setSqlAndParameters(sql, new Object[]{scheduleId, sectorId});
 
-            ResultSet rs = jdbcUtil.executeQuery();
-
+        try (ResultSet rs = jdbcUtil.executeQuery()) {
             while (rs.next()) {
                 Wishlist wishlist = new Wishlist();
                 wishlist.setWishlistId(rs.getLong("WISHLIST_ID"));
@@ -76,15 +89,44 @@ public class NotificationDAO {
 
                 long sector = rs.getLong("SECTOR_ID");
                 wishlist.setSectorId(rs.wasNull() ? null : sector);
-
                 wishlists.add(wishlist);
             }
+        }
 
-            return wishlists;
+        return wishlists;
+    }
+    
+    // 해당 공연의 취소 대기 좌석이 있는 구역 조회
+    public List<Long> selectCancelPendingSectorIds(Long performanceId) {
+        JDBCUtil jdbcUtil = new JDBCUtil();
+        List<Long> sectorIds = new ArrayList<>();
 
+        String sql = "SELECT DISTINCT s.SECTOR_ID "
+                + "FROM BOOKING b "
+                + "JOIN BOOKING_SEAT bs ON bs.BOOKING_ID = b.BOOKING_ID "
+                + "JOIN SEAT s ON s.SEAT_ID = bs.SEAT_ID "
+                + "WHERE b.PERFORMANCE_ID = ? "
+                + "AND b.BOOKING_STATUS = ? "
+                + "AND s.SEAT_STATUS = ? "
+                + "AND s.SECTOR_ID IS NOT NULL";
+
+        Object[] params = {
+                performanceId,
+                BookingStatus.CANCELED.getCode(),
+                SeatStatus.CANCEL_PENDING.getCode()
+        };
+
+        try {
+            jdbcUtil.setSqlAndParameters(sql, params);
+
+            ResultSet rs = jdbcUtil.executeQuery();
+            while (rs.next()) {
+                sectorIds.add(rs.getLong("SECTOR_ID"));
+            }
+
+            return sectorIds;
         } catch (Exception e) {
-            throw new RuntimeException("위시리스트 알림 대상 조회 실패", e);
-
+            throw new RuntimeException("취소 대기 좌석 구역 조회 실패", e);
         } finally {
             jdbcUtil.close();
         }

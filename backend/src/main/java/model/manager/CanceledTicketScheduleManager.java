@@ -1,5 +1,6 @@
 package model.manager;
 
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 
@@ -8,20 +9,25 @@ import org.springframework.stereotype.Service;
 import common.error.ApiException;
 import common.error.ErrorCode;
 import model.dao.CanceledTicketScheduleDAO;
+import model.dao.JDBCUtil;
 import model.dao.PerformanceDAO;
 import model.domain.CanceledTicketSchedule;
 import model.domain.Performance;
+
 
 @Service
 public class CanceledTicketScheduleManager {
     private final PerformanceDAO performanceDAO;
     private final CanceledTicketScheduleDAO scheduleDAO;
+    private final NotificationManager notificationManager;
 
     public CanceledTicketScheduleManager(
             PerformanceDAO performanceDAO,
-            CanceledTicketScheduleDAO scheduleDAO) {
+            CanceledTicketScheduleDAO scheduleDAO,
+            NotificationManager notificationManager) {
         this.performanceDAO = performanceDAO;
         this.scheduleDAO = scheduleDAO;
+        this.notificationManager = notificationManager;
     }
     
     // 취소표 재오픈 일정 등록 (M27)
@@ -48,9 +54,23 @@ public class CanceledTicketScheduleManager {
         schedule.setPerformanceId(performanceId);
         schedule.setOpenAt(openAt);
 
-        // DAO에서 일정을 대기 상태(P)로 저장하고 커밋
-        if (scheduleDAO.insertSchedule(schedule) != 1) {
-            throw new ApiException(ErrorCode.INTERNAL_ERROR, "재오픈 일정을 저장하지 못했습니다.");
+        JDBCUtil jdbcUtil = new JDBCUtil();
+
+        try {
+            long scheduleId = scheduleDAO.insertScheduleAndGetId(jdbcUtil, schedule);
+            notificationManager.createCancelTicketNotifications(jdbcUtil, performanceId, scheduleId);
+
+            // 일정과 알림 저장이 모두 성공하면 함께 커밋한다.
+            jdbcUtil.commit();
+        } catch (Exception e) {
+            try {
+                jdbcUtil.rollback();
+            } catch (SQLException rollbackError) {
+                e.addSuppressed(rollbackError);
+            }
+            throw e;
+        } finally {
+            jdbcUtil.close();
         }
     }
 }
