@@ -79,7 +79,7 @@ public class CanceledTicketScheduleControllerTest {
         private Timestamp openAt;
 
         RecordingScheduleManager() {
-            super(null, null);
+            super(null, null, null);
         }
 
         @Override

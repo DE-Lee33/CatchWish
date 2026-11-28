@@ -1,6 +1,10 @@
 package model.manager;
 
 import java.sql.Timestamp;
+import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.time.Instant;
 
 import org.springframework.stereotype.Service;
@@ -9,19 +13,27 @@ import common.error.ApiException;
 import common.error.ErrorCode;
 import model.dao.CanceledTicketScheduleDAO;
 import model.dao.PerformanceDAO;
+import model.dao.JDBCUtil;
+import model.dao.NotificationDAO;
+import model.domain.Notification;
+import model.domain.Wishlist;
 import model.domain.CanceledTicketSchedule;
 import model.domain.Performance;
+
 
 @Service
 public class CanceledTicketScheduleManager {
     private final PerformanceDAO performanceDAO;
     private final CanceledTicketScheduleDAO scheduleDAO;
+    private final NotificationDAO notificationDAO;
 
     public CanceledTicketScheduleManager(
             PerformanceDAO performanceDAO,
-            CanceledTicketScheduleDAO scheduleDAO) {
+            CanceledTicketScheduleDAO scheduleDAO,
+            NotificationDAO notificationDAO) {
         this.performanceDAO = performanceDAO;
         this.scheduleDAO = scheduleDAO;
+        this.notificationDAO = notificationDAO;
     }
     
     // 취소표 재오픈 일정 등록 (M27)
@@ -48,9 +60,46 @@ public class CanceledTicketScheduleManager {
         schedule.setPerformanceId(performanceId);
         schedule.setOpenAt(openAt);
 
-        // DAO에서 일정을 대기 상태(P)로 저장하고 커밋
-        if (scheduleDAO.insertSchedule(schedule) != 1) {
-            throw new ApiException(ErrorCode.INTERNAL_ERROR, "재오픈 일정을 저장하지 못했습니다.");
+        List<Long> sectorIds = notificationDAO.selectCancelPendingSectorIds(performanceId);
+        Set<Long> notifiedWishlistIds = new HashSet<>();
+        JDBCUtil jdbcUtil = new JDBCUtil();
+
+        try {
+            long scheduleId = scheduleDAO.insertScheduleAndGetId(jdbcUtil, schedule);
+
+            for (Long sectorId : sectorIds) {
+                List<Wishlist> targets =
+                        notificationDAO.selectWishlistTargets(jdbcUtil, scheduleId, sectorId);
+
+                for (Wishlist wishlist : targets) {
+                    // 구역을 지정하지 않은 위시리스트가 여러 구역에서 조회될 수 있다.
+                    if (!notifiedWishlistIds.add(wishlist.getWishlistId())) {
+                        continue;
+                    }
+
+                    Notification notification = new Notification();
+                    notification.setNotificationType("CANCEL");
+                    notification.setMemberId(wishlist.getMemberId());
+                    notification.setWishlistId(wishlist.getWishlistId());
+                    notification.setCanceledTicketScheduleId(scheduleId);
+
+                    if (notificationDAO.insertNotification(jdbcUtil, notification) != 1) {
+                        throw new SQLException("취소표 알림을 저장하지 못했습니다.");
+                    }
+                }
+            }
+
+            // 일정과 알림 저장이 모두 성공하면 한 번에 확정한다.
+            jdbcUtil.commit();
+        } catch (Exception e) {
+            try {
+                jdbcUtil.rollback();
+            } catch (SQLException rollbackError) {
+                e.addSuppressed(rollbackError);
+            }
+            throw e;
+        } finally {
+            jdbcUtil.close();
         }
     }
 }
