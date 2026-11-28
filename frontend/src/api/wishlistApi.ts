@@ -37,3 +37,9 @@ export async function updateWishlistPriority(wishlistId: number, priority: numbe
   const response = await client.put<WishlistItem[]>(`/wishlist/${wishlistId}/priority`, { priority })
   return response.data
 }
+
+// 화면에 보이는 순서대로 위시리스트 ID 전체를 보내면 서버가 한 번에 1, 2, 3... 으로 다시 매긴다
+export async function reorderWishlist(wishlistIds: number[]): Promise<WishlistItem[]> {
+  const response = await client.put<WishlistItem[]>('/wishlist/order', { wishlistIds })
+  return response.data
+}
