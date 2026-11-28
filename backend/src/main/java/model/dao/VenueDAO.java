@@ -76,6 +76,25 @@ public class VenueDAO {
         return venue;
     }
     
+    // 트랜잭션 참여용: 템플릿 없이 직접 그린 공연용 공연장
+    public static long createVenue(JDBCUtil jdbcUtil, String venueName, String venueAddress, int capacity) throws Exception {
+        String sql = "INSERT INTO venue (venue_id, venue_name, venue_address, venue_capacity) VALUES (?, ?, ?, ?)";
+        long venueId = nextSequence(jdbcUtil, "SEQ_VENUE");   // 시퀀스 이름 확인 필요
+        jdbcUtil.setSqlAndParameters(sql, new Object[] { venueId, venueName, venueAddress, capacity });
+        jdbcUtil.executeUpdate();
+        return venueId;
+    }
+    
+    /** 시퀀스 다음 값 조회 (PerformanceDAO의 것과 동일) */
+    private static long nextSequence(JDBCUtil jdbcUtil, String sequenceName) throws Exception {
+        jdbcUtil.setSqlAndParameters("SELECT " + sequenceName + ".NEXTVAL FROM DUAL", null);
+        ResultSet rs = jdbcUtil.executeQuery();
+        if (!rs.next()) {
+            throw new SQLException(sequenceName + " 값을 가져오지 못했습니다.");
+        }
+        return rs.getLong(1);
+    }
+    
     private SQLException toSQLException(String message, Exception ex) {
         if(ex instanceof SQLException) {
             return (SQLException) ex;

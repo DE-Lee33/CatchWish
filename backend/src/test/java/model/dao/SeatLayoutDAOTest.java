@@ -119,7 +119,7 @@ public class SeatLayoutDAOTest {
         assertTrue(createdSectorId > 0);
         System.out.println("[PASS] 생성된 SECTOR_ID: " + createdSectorId);
 
-        int seatResult = seatLayoutDao.insertSeat(createdSeatLayoutId, createdSectorId, 1, 1, "A-1");
+        int seatResult = seatLayoutDao.insertSeat(createdSeatLayoutId, createdSectorId, "A", 1, "A-1");
         System.out.println("[INFO] insertSeat 결과: " + seatResult);
         assertTrue("좌석 등록이 성공해야 합니다.", seatResult > 0);
         System.out.println("[PASS] 좌석 등록 성공");

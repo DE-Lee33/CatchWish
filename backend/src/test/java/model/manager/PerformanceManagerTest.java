@@ -30,7 +30,7 @@ public class PerformanceManagerTest {
 	}
 
 	private final FakePerformanceDAO performanceDAO = new FakePerformanceDAO();
-	private final PerformanceManager performanceManager = new PerformanceManager(performanceDAO);
+	private final PerformanceManager performanceManager = new PerformanceManager(performanceDAO, null, null);
 
 	@Test
 	public void 장르와_페이지를_한_페이지_10개로_DAO에_넘긴다() throws Exception {
