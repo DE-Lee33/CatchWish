@@ -20,6 +20,7 @@ import model.dto.PriorityRequest;
 import model.dto.WishlistRequest;
 import model.dto.WishlistResponseDTO;
 import model.manager.WishlistManager;
+import model.dto.WishlistOrderRequest;
 
 @RestController
 @RequestMapping("/api/wishlist")
@@ -56,5 +57,12 @@ public class WishlistController {
             @RequestBody PriorityRequest body, HttpServletRequest request) throws Exception {
         LoginMember member = LoginSession.require(request);
         return wishlistManager.updatePriority(wishlistId, member.memberId(), body.priority());
+    }
+    
+    @PutMapping("/order")
+    public List<WishlistResponseDTO> reorder(@RequestBody WishlistOrderRequest body, HttpServletRequest request)
+            throws Exception {
+        LoginMember member = LoginSession.require(request);
+        return wishlistManager.reorder(member.memberId(), body.wishlistIds());
     }
 }
