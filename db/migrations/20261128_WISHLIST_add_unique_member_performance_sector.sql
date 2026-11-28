@@ -1,0 +1,6 @@
+-- ⚠️ 이미 팀 공용 DB에 반영됨. 재실행 금지 (기록용)
+-- 2026-11-28 WISHLIST에 (MEMBER_ID, PERFORMANCE_ID, SECTOR_ID) 유니크 제약을 추가
+-- 같은 회원이 같은 공연·구역을 중복 등록하지 못하게 DB에서 보장 (M12)
+ALTER TABLE WISHLIST
+  ADD CONSTRAINT UK_WISHLIST_MBR_PERF_SECTOR UNIQUE (MEMBER_ID, PERFORMANCE_ID, SECTOR_ID);
+  
