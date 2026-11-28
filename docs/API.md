@@ -33,6 +33,7 @@
 | M1 | POST | `/api/members` | 회원가입 | - | 현지 |
 | M1 | GET | `/api/members/check-id` | 아이디 중복확인 | - | 현지 |
 | M9 | POST | `/api/performances` | 공연 등록 (좌석 배치 M20 포함, 심사중으로 생성) | 로그인 | 재원 |
+| M32-1 | GET | `/api/notifications` | 인앱 알림 목록 조회 | 로그인 | 지우 |
 
 ---
 
@@ -78,6 +79,13 @@
 - 성공: `201` `{ "performanceId": number }`
 - 오류: `401 AUTH_REQUIRED` 로그인 안 함 · `400 BAD_REQUEST` 필수 파트(`data`, `proof`) 누락, 입력값 검증 실패(message에 사유), 허용되지 않는 파일 형식 · `413 FILE_TOO_LARGE` 증빙 10MB / 포스터 5MB 초과, 요청 전체 20MB 초과 · `415 UNSUPPORTED_MEDIA_TYPE` multipart가 아닌 요청 또는 `data` 파트가 JSON이 아님
 
+## NotificationController
+
+### `GET /api/notifications` 인앱 알림 목록 조회
+로그인 세션의 회원 ID를 기준으로 본인의 알림을 등록일 최신순으로 조회합니다.
+- 요청: 없음
+- 성공: `200` 알림 목록 배열 (알림이 없으면 `[]`)
+- 오류: `401 AUTH_REQUIRED` 로그인 안 함·세션 만료
 ---
 
 ## 응답 객체
