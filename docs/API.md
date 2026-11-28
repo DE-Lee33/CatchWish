@@ -32,6 +32,7 @@
 | M2 | GET | `/api/members/me` | 내 로그인 정보 | 로그인 | 현지 |
 | M1 | POST | `/api/members` | 회원가입 | - | 현지 |
 | M1 | GET | `/api/members/check-id` | 아이디 중복확인 | - | 현지 |
+| M22 | POST | `/api/bookings/hold` | 좌석 선점 및 예매 생성 | 로그인 | 재원 |
 | M9 | POST | `/api/performances` | 공연 등록 (좌석 배치 M20 포함, 심사중으로 생성) | 로그인 | 재원 |
 
 ---
@@ -39,38 +40,65 @@
 ## AuthController
 
 ### `POST /api/auth/login` 로그인
+
 - 요청: `{ "loginId": string, "password": string }` 둘 다 필수
 - 성공: `200` [LoginMember](#loginmember) + 세션 쿠키 발급
 - 오류: `400 BAD_REQUEST` 빈 값 · `401 LOGIN_FAILED` 없는 아이디 또는 틀린 비밀번호 (구분하지 않음)
 
 ### `POST /api/auth/logout` 로그아웃
+
 - 요청: 없음
 - 성공: `204` (이미 로그아웃이어도 204)
 
 ## MemberController
 
 ### `GET /api/members/me` 내 로그인 정보
+
 새로고침 후 로그인 상태 복원용. DB 조회 없이 세션 값을 돌려줍니다.
+
 - 성공: `200` [LoginMember](#loginmember)
 - 오류: `401 AUTH_REQUIRED` 로그인 안 함·세션 만료(30분)
 
 ### `POST /api/members` 회원가입
+
 일반회원(USER)으로 가입합니다. 자동 로그인은 하지 않습니다.
+
 - 요청: `{ "loginId": string, "password": string, "memberName": string, "email": string }` 모두 필수
   - `loginId` 영문·숫자 4~20자 · `password` 8자 이상 · `memberName` 공백만 불가 · `email` 형식만 검사
 - 성공: `201` `{ "memberId": number }`
 - 오류: `400 BAD_REQUEST` 빈 값·형식 오류 · `409 DUPLICATE_LOGIN_ID` 아이디 중복 · `409 DUPLICATE_EMAIL` 이메일 중복 (동시 가입으로 DB에서 막혀도 같은 응답)
 
 ### `GET /api/members/check-id` 아이디 중복확인
+
 가입 전 안내용입니다. `true`여도 가입 순간에 다른 사람이 먼저 가져가면 가입이 `409 DUPLICATE_LOGIN_ID`로 실패할 수 있습니다.
+
 - 경로·쿼리: `loginId` string 필수 (영문·숫자 4~20자)
 - 성공: `200` `{ "available": boolean }` 가입 가능하면 `true`
 - 오류: `400 BAD_REQUEST` `loginId` 없음·형식 오류
 
+## BookingController
+
+### `POST /api/bookings/hold` 좌석 선점 및 예매 생성
+
+로그인한 회원이 선택한 공연의 좌석을 선점하고 예매 정보를 생성합니다. 선점된 좌석은 약 10분 동안 유지되며, 만료되면 자동으로 예매가 취소되고 좌석이 복원됩니다.
+
+- 요청: `{ "performanceId": number, "seatIds": number[] }`
+  - `performanceId`: 공연 ID (필수)
+  - `seatIds`: 선점할 좌석 ID 목록 (필수, 중복 불가)
+- 성공: `200` [BookingHoldResponse](#bookingholdresponse)
+- 오류:
+  - `401 AUTH_REQUIRED` 로그인하지 않음
+  - `400 BAD_REQUEST` 공연 ID 누락 · 좌석 목록 누락 또는 비어 있음 · 중복 좌석 요청
+  - `404 NOT_FOUND` 존재하지 않는 공연 · 해당 공연에 속하지 않는 좌석
+  - `409 SEAT_ALREADY_HELD` 다른 회원이 이미 선점한 좌석
+  - `400 MAX_TICKETS_EXCEEDED` 최대 예매 가능 매수 초과
+
 ## PerformanceController
 
 ### `POST /api/performances` 공연 등록
+
 공연 등록(M9)과 좌석 배치(M20)를 **한 번의 요청, 한 트랜잭션**으로 저장합니다. 공연은 심사중(`P`) 상태로 생성되고, 중간에 실패하면 DB는 롤백되고 이미 저장된 파일도 삭제됩니다. 좌석 상태는 항상 `AVAILABLE`로 서버가 고정합니다.
+
 - 요청: `multipart/form-data` (파트 3개)
   - `data` 필수 · 공연 정보 JSON, **파트 Content-Type을 `application/json`으로 지정** · [PerformanceRegisterRequest](#performanceregisterrequest)
   - `proof` 필수 · 대관 증빙 · pdf/jpg/jpeg/png · 10MB 이하
@@ -83,6 +111,7 @@
 ## 응답 객체
 
 ### LoginMember
+
 ```ts
 {
   memberId: number
@@ -93,9 +122,24 @@
 }
 ```
 
+### BookingHoldResponse
+
+```ts
+{
+  bookingId: number
+  performanceId: number
+  seatIds: number[]
+  holdExpiresAt: number    // 만료 시각 (Unix epoch milliseconds)
+  remainingSeconds: number // 남은 선점 시간 (초)
+}
+```
+
+---
+
 ## 요청 객체
 
 ### PerformanceRegisterRequest
+
 ```ts
 {
   venueTemplateId: number | null   // 템플릿 공연장을 불러왔으면 venue id, 직접 그렸으면 null
@@ -141,6 +185,7 @@
   }
 }
 ```
+
 - 같은 배치 안에서 `(rowNum, columnNum)`은 구역이 달라도 중복될 수 없습니다.
 - 등급(`grades`)을 먼저 정의해야 구역이 `gradeKey`로 참조할 수 있습니다.
 
@@ -156,5 +201,3 @@
 - 성공: `200` 응답 설명 또는 [객체](#응답-객체) 링크
 - 오류: `상태 CODE` 언제 · `상태 CODE` 언제
 ````
-
-여러 API가 같이 쓰는 응답 모양은 [응답 객체](#응답-객체)에 한 번만 씁니다.
