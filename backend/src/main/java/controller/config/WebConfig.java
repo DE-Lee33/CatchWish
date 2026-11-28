@@ -2,6 +2,7 @@ package controller.config;
 
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -19,12 +20,12 @@ import common.auth.LoginCheckInterceptor;
  */
 @Configuration
 @EnableWebMvc
-@ComponentScan(basePackages = { "controller", "model.manager", "model.dao", "common" })
+@EnableScheduling
+@ComponentScan(basePackages = { "controller", "model.manager", "model.dao", "common", "scheduler" })
 public class WebConfig implements WebMvcConfigurer {
     
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new LoginCheckInterceptor()).addPathPatterns("/api/**");
     }
-    
 }

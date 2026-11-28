@@ -1,5 +1,7 @@
 package model.dao;
 
+import java.math.BigDecimal;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import model.domain.enums.BookingStatus;
 import model.domain.enums.SeatStatus;
@@ -31,6 +33,7 @@ public class BookingSeatDAO {
     
     /**
      * 트랜잭션 참여용 (commit/rollback/close는 호출한 쪽에서).
+     * 만료 판단을 created_at → hold_expires_at 기준으로 변경
      * 복원 규칙은 단독용 메소드 주석 참고.
      * 주의: 홀드(updateSeatToHeld)와 예매 좌석 등록(insertBookingSeat)은 같은 JDBCUtil로 묶어
      *       한 번에 commit해야 한다. 따로 commit하면 그 사이에 이 복원이 실행될 때
@@ -44,14 +47,14 @@ public class BookingSeatDAO {
                    + "    SELECT bs.seat_id "
                    + "    FROM booking_seat bs JOIN booking b ON bs.booking_id = b.booking_id "
                    + "    WHERE b.booking_status = ? "
-                   + "       OR (b.booking_status = ? AND b.created_at < SYSDATE - (10 / (24 * 60))) "
+                   + "       OR (b.booking_status = ? AND b.hold_expires_at < SYSDATE) "
                    + ") "
                    + "AND NOT EXISTS ( "
                    + "    SELECT 1 "
                    + "    FROM booking_seat bs2 JOIN booking b2 ON bs2.booking_id = b2.booking_id "
                    + "    WHERE bs2.seat_id = s.seat_id "
                    + "      AND (b2.booking_status = ? "
-                   + "        OR (b2.booking_status = ? AND b2.created_at >= SYSDATE - (10 / (24 * 60)))) "
+                   + "        OR (b2.booking_status = ? AND b2.hold_expires_at >= SYSDATE)) "
                    + ")";
 
         jdbcUtil.setSqlAndParameters(sql, new Object[] {
@@ -126,14 +129,29 @@ public class BookingSeatDAO {
         }
     }
 
+    /** 핵심: 'A'인 좌석만 'H'로. 반환 1=성공, 0=이미 다른 회원이 선점 */
     public int updateSeatToHeld(JDBCUtil jdbcUtil, long seatId) throws Exception {
         String sql = "UPDATE seat "
                    + "SET seat_status = ? "
                    + "WHERE seat_id = ? AND seat_status = ?";
 
         jdbcUtil.setSqlAndParameters(sql, new Object[] { SeatStatus.HELD.getCode(), seatId, SeatStatus.AVAILABLE.getCode() });
-        
         return jdbcUtil.executeUpdate();
+    }
+    
+    /**
+     * [신규] 좌석 가격 조회. 좌석이 해당 공연의 구역(SECTOR)에 속하지 않으면 null (= 다른 공연 좌석).
+     * ※ SEAT_GRADE.PRICE 컬럼명이 다르면 이 SQL만 수정
+     */
+    public BigDecimal selectSeatPrice(JDBCUtil jdbcUtil, Long seatId, Long performanceId) throws Exception {
+        jdbcUtil.setSqlAndParameters(
+            "SELECT SG.PRICE FROM SEAT S " +
+            "JOIN SECTOR SC ON S.SECTOR_ID = SC.SECTOR_ID " +
+            "JOIN SEAT_GRADE SG ON SC.GRADE_ID = SG.GRADE_ID AND SC.PERFORMANCE_ID = SG.PERFORMANCE_ID " +
+            "WHERE S.SEAT_ID = ? AND SC.PERFORMANCE_ID = ?",
+            new Object[] { seatId, performanceId });
+        ResultSet rs = jdbcUtil.executeQuery();
+        return rs.next() ? rs.getBigDecimal(1) : null;
     }
 
     private void rollbackQuietly(JDBCUtil jdbcUtil) {   
