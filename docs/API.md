@@ -32,6 +32,7 @@
 | M2 | GET | `/api/members/me` | 내 로그인 정보 | 로그인 | 현지 |
 | M1 | POST | `/api/members` | 회원가입 | - | 현지 |
 | M1 | GET | `/api/members/check-id` | 아이디 중복확인 | - | 현지 |
+| M4 | GET | `/api/performances` | 공연 목록 (장르, 페이지) | - | 현지 |
 | M9 | POST | `/api/performances` | 공연 등록 (좌석 배치 M20 포함, 심사중으로 생성) | 로그인 | 재원 |
 
 ---
@@ -69,6 +70,12 @@
 
 ## PerformanceController
 
+### `GET /api/performances` 공연 목록
+승인됐고 공연 일시가 지나지 않은 공연만, 공연 일시가 빠른 순으로 한 페이지에 10개씩 줍니다.
+- 경로·쿼리: `genre` string 선택(없거나 비면 전체, 예: `CONCERT`) · `page` number 선택(기본 1)
+- 성공: `200` `{ performanceList: Performance[], totalCount: number }`. totalCount는 이 장르 전체 개수(페이지 수 = ceil(totalCount / 10)). 마지막 페이지를 넘기면 빈 배열
+- 오류: `400 BAD_REQUEST` page가 숫자가 아니거나 1보다 작을 때
+
 ### `POST /api/performances` 공연 등록
 공연 등록(M9)과 좌석 배치(M20)를 **한 번의 요청, 한 트랜잭션**으로 저장합니다. 공연은 심사중(`P`) 상태로 생성되고, 중간에 실패하면 DB는 롤백되고 이미 저장된 파일도 삭제됩니다. 좌석 상태는 항상 `AVAILABLE`로 서버가 고정합니다.
 - 요청: `multipart/form-data` (파트 3개)
@@ -90,6 +97,34 @@
   memberName: string      // 중복 가능, 표시용
   role: "USER" | "ADMIN"
   admin: boolean          // role이 ADMIN이면 true
+}
+```
+
+### Performance
+날짜는 Jackson 기본값대로 epoch 밀리초 숫자입니다 (`new Date(showAt)`).
+```ts
+{
+  performanceId: number
+  registrantId: number         // 공연 등록자 MEMBER_ID
+  managerId: number | null     // 심사한 관리자
+  venueTemplateId: number | null
+  performanceName: string
+  genre: string                // 예: "CONCERT", "MUSICAL"
+  castInfo: string
+  description: string
+  posterUrl: string | null
+  runningTime: number          // 분
+  showAt: number               // 공연 일시
+  bookingOpenAt: number        // 예매 오픈 시각
+  cancelDeadlineAt: number     // 취소 가능 기한
+  maxTicketsPerMember: number
+  venueName: string
+  venueAddress: string
+  approvalStatus: "P" | "A" | "R"   // 심사중 · 승인 · 반려
+  approved: boolean            // approvalStatus가 "A"면 true
+  rejectReason: string | null
+  reviewedAt: number | null
+  createdAt: number
 }
 ```
 

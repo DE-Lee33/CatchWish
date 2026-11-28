@@ -3,10 +3,14 @@ package controller;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -19,16 +23,21 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import common.auth.LoginCheckInterceptor;
 import common.auth.LoginMember;
 import common.auth.LoginSession;
 import common.error.ApiException;
 import common.error.ErrorCode;
 import common.error.GlobalExceptionHandler;
+import model.domain.Performance;
 import model.dto.PerformanceRegisterRequest;
 import model.manager.PerformanceManager;
 
 public class PerformanceControllerTest {
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private MockMvc mockMvc;
     private StubManager manager;
 
@@ -38,6 +47,8 @@ public class PerformanceControllerTest {
         long lastMemberId;
         boolean receivedPoster;
         RuntimeException toThrow;
+        String genre;
+        int page;
 
         StubManager() { super(null, null, null); }
 
@@ -49,6 +60,22 @@ public class PerformanceControllerTest {
             receivedPoster = (poster != null);
             if (toThrow != null) throw toThrow;
             return 77L;
+        }
+
+        // 목록 HTTP 처리만 확인하려고 받은 값을 기억하고 결과를 고정한다 (페이지 규칙은 PerformanceManagerTest에서 확인)
+        @Override
+        public List<Performance> findPerformanceList(String genre, int page) {
+            this.genre = genre;
+            this.page = page;
+            Performance performance = new Performance();
+            performance.setPerformanceId(7L);
+            performance.setPerformanceName("2026 캐치위시 페스티벌");
+            return List.of(performance);
+        }
+
+        @Override
+        public int countPerformances(String genre) {
+            return 23;
         }
     }
 
@@ -155,5 +182,30 @@ public class PerformanceControllerTest {
                 .andExpect(content().string(containsString("\"code\":\"FILE_TOO_LARGE\"")))
                 .andReturn();
         print("용량 초과 → 413", "Manager가 MaxUploadSizeExceededException 던지도록 설정", r, "code=FILE_TOO_LARGE");
+    }
+
+    @Test
+    public void 목록과_전체_개수를_응답한다() throws Exception {
+        String json = mockMvc.perform(get("/api/performances").param("genre", "CONCERT").param("page", "2"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+
+        JsonNode body = objectMapper.readTree(json);
+        assertEquals(23, body.get("totalCount").asInt());
+        assertEquals(7L, body.get("performanceList").get(0).get("performanceId").asLong());
+        assertEquals("CONCERT", manager.genre);
+        assertEquals(2, manager.page);
+    }
+
+    @Test
+    public void 파라미터가_없으면_전체_1페이지() throws Exception {
+        mockMvc.perform(get("/api/performances")).andExpect(status().isOk());
+
+        assertNull(manager.genre);
+        assertEquals(1, manager.page);
+    }
+
+    @Test
+    public void 페이지가_숫자가_아니면_400() throws Exception {
+        mockMvc.perform(get("/api/performances").param("page", "abc")).andExpect(status().isBadRequest());
     }
 }
