@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getApiError } from '../../api/apiError.ts'
+import { toApiError } from '../../api/client.ts'
 import { deleteWishlist } from '../../api/wishlistApi.ts'
 
 type WishlistDeleteButtonProps = {
@@ -14,12 +14,13 @@ function WishlistDeleteButton({ wishlistId, disabled = false, onDeleted, onError
 
   async function handleClick() {
     if (!window.confirm('위시리스트에서 삭제할까요?')) return
+
     setDeleting(true)
     try {
       await deleteWishlist(wishlistId)
       onDeleted()
     } catch (caught) {
-      onError(getApiError(caught)?.message ?? '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
+      onError(toApiError(caught).message)
     } finally {
       setDeleting(false)
     }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getErrorMessage } from '../../api/apiError.ts'
+import { toApiError } from '../../api/client.ts'
 import { reorderWishlist, type WishlistItem } from '../../api/wishlistApi.ts'
 import WishlistDeleteButton from './WishlistDeleteButton.tsx'
 
@@ -26,7 +26,7 @@ function WishlistSortableList({ items, onChanged, onError }: WishlistSortableLis
     try {
       await reorderWishlist(ids)
     } catch (caught) {
-      onError(getErrorMessage(caught))
+      onError(toApiError(caught).message)
     } finally {
       setBusy(false)
       onChanged() // 성공이든 실패든 서버 기준으로 다시 불러와 화면과 DB를 맞춘다

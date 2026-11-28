@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { getApiError, getErrorMessage } from '../../api/apiError.ts'
+import { toApiError } from '../../api/client.ts'
 import { fetchWishlist, type WishlistItem } from '../../api/wishlistApi.ts'
 import WishlistSortableList from './WishlistSortableList.tsx'
 
@@ -14,11 +14,12 @@ function WishlistList() {
       setItems(await fetchWishlist())
       setError('')
     } catch (caught) {
-      if (getApiError(caught)?.code === 'AUTH_REQUIRED') {
+      const apiError = toApiError(caught)
+      if (apiError.code === 'AUTH_REQUIRED') {
         navigate('/login?redirect=/mypage/wishlist')
         return
       }
-      setError(getErrorMessage(caught))
+      setError(apiError.message)
     }
   }, [navigate])
 

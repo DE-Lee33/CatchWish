@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { getErrorMessage } from '../../api/apiError.ts'
+import { toApiError } from '../../api/client.ts' 
 import { addWishlist } from '../../api/wishlistApi.ts'
 
 type WishlistFormProps = {
@@ -25,7 +25,7 @@ function WishlistForm({ performanceId, onRegistered }: WishlistFormProps) {
       await addWishlist(performanceId, toNumberOrNull(sectorId), toNumberOrNull(priority))
       onRegistered()
     } catch (caught) {
-      setError(getErrorMessage(caught))
+      setError(toApiError(caught).message)
     } finally {
       setSubmitting(false)
     }
