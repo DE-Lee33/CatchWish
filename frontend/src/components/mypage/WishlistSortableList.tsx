@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { getApiError } from '../.././api/apiError.ts'
-import { updateWishlistPriority, type WishlistItem } from '../../api/wishlistApi.ts'
+import { getErrorMessage } from '../../api/apiError.ts'
+import { reorderWishlist, type WishlistItem } from '../../api/wishlistApi.ts'
 import WishlistDeleteButton from './WishlistDeleteButton.tsx'
 
 type WishlistSortableListProps = {
@@ -13,24 +13,20 @@ function WishlistSortableList({ items, onChanged, onError }: WishlistSortableLis
   const [busy, setBusy] = useState(false)
 
   // 드래그 라이브러리를 새로 넣지 않고 위·아래 버튼으로 순서를 바꾼다.
-  // 바뀐 순서대로 우선순위를 1, 2, 3...으로 다시 매기고, 값이 달라진 항목만 서버에 보낸다.
+  // 바뀐 순서의 ID 목록을 서버에 한 번만 보내고, 서버가 한 트랜잭션으로 우선순위를 다시 매긴다.
   async function move(index: number, delta: -1 | 1) {
     const target = index + delta
     if (target < 0 || target >= items.length) return
 
-    const reordered = [...items]
-    ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
+    const ids = items.map((item) => item.wishlist.wishlistId)
+    const moved = ids.splice(index, 1)[0]
+    ids.splice(target, 0, moved)
 
     setBusy(true)
     try {
-      for (const [position, item] of reordered.entries()) {
-        const priority = position + 1
-        if (item.wishlist.priority !== priority) {
-          await updateWishlistPriority(item.wishlist.wishlistId, priority)
-        }
-      }
+      await reorderWishlist(ids)
     } catch (caught) {
-      onError(getApiError(caught)?.message ?? '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
+      onError(getErrorMessage(caught))
     } finally {
       setBusy(false)
       onChanged() // 성공이든 실패든 서버 기준으로 다시 불러와 화면과 DB를 맞춘다
