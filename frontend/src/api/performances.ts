@@ -25,6 +25,18 @@ export type Performance = {
   createdAt: number
 }
 
+// 서버 PERFORMANCE.GENRE 값과 같아야 한다. M9 공연 등록도 같은 코드를 쓴다 (DECISIONS "장르 탭")
+export const GENRES = [
+  { code: '', label: '전체' },
+  { code: 'CONCERT', label: '콘서트' },
+  { code: 'MUSICAL', label: '뮤지컬' },
+  { code: 'PLAY', label: '연극' },
+  { code: 'ETC', label: '기타' },
+]
+
+// 서버 PerformanceManager.PAGE_SIZE와 같아야 페이지 수가 맞는다
+export const PAGE_SIZE = 10
+
 // 서버 model.dto.PerformanceListResponse
 export type PerformanceList = {
   performanceList: Performance[]
