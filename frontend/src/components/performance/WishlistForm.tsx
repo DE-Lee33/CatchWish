@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { getApiError } from '../../api/apiError.ts'
+import { getErrorMessage } from '../../api/apiError.ts'
 import { addWishlist } from '../../api/wishlistApi.ts'
 
 type WishlistFormProps = {
@@ -25,7 +25,7 @@ function WishlistForm({ performanceId, onRegistered }: WishlistFormProps) {
       await addWishlist(performanceId, toNumberOrNull(sectorId), toNumberOrNull(priority))
       onRegistered()
     } catch (caught) {
-      setError(getApiError(caught)?.message ?? '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.')
+      setError(getErrorMessage(caught))
     } finally {
       setSubmitting(false)
     }
