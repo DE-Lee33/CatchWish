@@ -30,6 +30,7 @@
 | M2 | GET | `/api/members/me` | 내 로그인 정보 | 로그인 | 현지 |
 | M1 | POST | `/api/members` | 회원가입 | - | 현지 |
 | M1 | GET | `/api/members/check-id` | 아이디 중복확인 | - | 현지 |
+| M22 | POST | /api/bookings/hold | 좌석 선점 및 예매 생성 | 로그인 | 재원 |
 
 ---
 
@@ -64,6 +65,23 @@
 - 성공: `200` `{ "available": boolean }` 가입 가능하면 `true`
 - 오류: `400 BAD_REQUEST` `loginId` 없음·형식 오류
 
+## BookingController
+
+### `POST /api/bookings/hold` 좌석 선점 및 예매 생성
+
+로그인한 회원이 선택한 공연의 좌석을 선점하고 예매 정보를 생성합니다. 선점된 좌석은 약 10분 동안 유지되며, 만료되면 자동으로 예매가 취소되고 좌석이 복원됩니다.
+
+- 요청: `{ "performanceId": number, "seatIds": number[] }`
+  - `performanceId`: 공연 ID (필수)
+  - `seatIds`: 선점할 좌석 ID 목록 (필수, 중복 불가)
+- 성공: `200` [BookingHoldResponse](#bookingholdresponse)
+- 오류:
+  - `401 AUTH_REQUIRED` 로그인하지 않음
+  - `400 BAD_REQUEST` 공연 ID 누락 · 좌석 목록 누락 또는 비어 있음 · 중복 좌석 요청
+  - `404 NOT_FOUND` 존재하지 않는 공연 · 해당 공연에 속하지 않는 좌석
+  - `409 SEAT_ALREADY_HELD` 다른 회원이 이미 선점한 좌석
+  - `400 MAX_TICKETS_EXCEEDED` 최대 예매 가능 매수 초과
+
 ---
 
 ## 응답 객체
@@ -76,6 +94,18 @@
   memberName: string      // 중복 가능, 표시용
   role: "USER" | "ADMIN"
   admin: boolean          // role이 ADMIN이면 true
+}
+```
+
+### BookingHoldResponse
+
+```ts
+{
+  bookingId: number
+  performanceId: number
+  seatIds: number[]
+  holdExpiresAt: number    // 만료 시각 (Unix epoch milliseconds)
+  remainingSeconds: number // 남은 선점 시간 (초)
 }
 ```
 
