@@ -2,6 +2,7 @@ package model.dao;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.sql.ResultSet;
 
 import org.springframework.stereotype.Repository;
 
@@ -110,5 +111,29 @@ public class WishlistDAO {
         } finally {
             jdbcUtil.close();
         }
+    }
+    
+    /** 구역이 해당 공연의 구역인지 확인 
+    * @throws Exception
+    * */
+    public boolean existsSectorInPerformance(Long sectorId, Long performanceId) throws Exception {
+        JDBCUtil jdbcUtil = new JDBCUtil();
+        try {
+            jdbcUtil.setSqlAndParameters(
+                    "SELECT COUNT(*) FROM SECTOR WHERE SECTOR_ID = ? AND PERFORMANCE_ID = ?",
+                    new Object[] { sectorId, performanceId });
+            ResultSet rs = jdbcUtil.executeQuery();
+            return rs.next() && rs.getInt(1) > 0;
+        } finally {
+            jdbcUtil.close();
+        }
+    }
+
+    /** 트랜잭션 참여용: 전달받은 JDBCUtil을 쓰고 commit/close는 하지 않는다 (Manager가 관리) */
+    public int updatePriority(JDBCUtil tx, Long wishlistId, Long memberId, int priority) throws Exception {
+        tx.setSqlAndParameters(
+                "UPDATE WISHLIST SET PRIORITY = ? WHERE WISHLIST_ID = ? AND MEMBER_ID = ?",
+                new Object[] { priority, wishlistId, memberId });
+        return tx.executeUpdate();
     }
 }
